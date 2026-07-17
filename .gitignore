@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# BastionBox runtime data (encrypted store, audit log, imported models)
+.bastionbox/
+_airgap_runtime_hook.py
+
+# Graphify knowledge graph — regenerate with `graphify update .`
+graphify-out/cache/
+# (graph.json / GRAPH_REPORT.md are kept so teammates get the map for free)
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

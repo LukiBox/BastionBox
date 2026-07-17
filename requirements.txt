@@ -1,0 +1,40 @@
+# BastionBox dependencies — split by capability so an air-gapped site installs
+# only what it will actually run. The CORE app (security walls, agent loop,
+# config, i18n) needs NOTHING beyond the standard library, by design: the load-
+# bearing code has no dependency an auditor would have to vet.
+#
+# Install everything for a full desktop build:
+#     python -m pip install -r requirements.txt
+# Or install only a capability group from pyproject.toml, e.g.:
+#     python -m pip install -e ".[ui,crypto]"
+
+# --- Desktop UI (required to launch the app) ------------------------------
+PySide6>=6.6              # Qt6 desktop shell — a real app, not a browser tab
+
+# --- Encryption at rest (strongly recommended) ----------------------------
+cryptography>=42          # AES-256-GCM authenticated encryption for the store
+argon2-cffi>=23           # Argon2id key derivation (memory-hard); PBKDF2 is the
+                          # stdlib fallback if this is absent
+
+# --- Inference backends (choose at least one) -----------------------------
+# The embedded llama.cpp path is the air-gap-capable primary: a GGUF is a file.
+llama-cpp-python>=0.2.60  # embedded llama.cpp; load any GGUF from disk
+# ollama>=0.3             # OPTIONAL convenience backend, loopback-only. Omitted
+                          # entirely from the Air-Gap build.
+
+# --- Documents & Office (read datasheets, write Word/Excel/PDF) ------------
+pymupdf>=1.24             # local PDF text extraction (datasheets); pypdf fallback
+python-docx>=1.1          # read + write .docx
+openpyxl>=3.1             # read + write .xlsx
+reportlab>=4.0            # write .pdf locally
+pypdf>=4.0                # PDF text-extraction fallback if PyMuPDF is absent
+# sqlite-vec>=0.1         # single-file vector store (no server); FAISS optional
+# tree-sitter>=0.21       # code-aware chunking by function/class
+# tree-sitter-languages>=1.10
+
+# --- Hardware optimizer niceties (optional) -------------------------------
+# psutil>=5.9             # richer CPU/RAM detection (graceful fallback if absent)
+# py-cpuinfo>=9           # AVX2/AVX-512 flag detection
+
+# --- Dev / test -----------------------------------------------------------
+pytest>=8                 # the security suite gates every milestone
