@@ -53,31 +53,44 @@ that points outside lands outside a root and is rejected. Rejected escapes,
 proven by the test suite: `..` traversal (lexical and post-symlink), absolute
 paths outside every root, UNC (`\\server\share`), Win32 device/namespace paths
 (`\\?\`, `\\.\`), drive-relative (`C:foo`), embedded NUL bytes, empty paths, and
-paths on a different drive than any workspace. **There is deliberately no second
-file API** — nothing writes to disk except through the jail.
+paths on a different drive than any workspace. This includes the search tools:
+both the `ripgrep` and the pure-Python fallback path of `grep` re-resolve every
+matching file through the jail before its contents are returned, so a reparse
+point inside a workspace cannot leak an outside file into the model's context via
+a search. **There is deliberately no second file API** — nothing reads or writes
+disk except through the jail.
 
 ### 2. The network guard blocks outbound traffic in-process
 `NetworkGuard` (`core/security/netguard.py`) monkeypatches the socket primitives
 every networking library funnels through — `connect`, `connect_ex`,
-`create_connection`, `getaddrinfo`, and the **connectionless `sendto` / `sendmsg`**
-(a UDP datagram needs no `connect()`, so leaving those open would be a DNS-tunnel-
-style exfiltration path) — **before Qt or any dependency is imported** (see the top
-of `app.py`). Non-loopback connections and datagrams, and even DNS resolution of a
-public hostname, fail closed and increment an audited counter. `AF_UNIX` sockets
-are exempt (filesystem-local IPC that cannot leave the machine). The only network
-whitelist is loopback (for an optional local Ollama); the Air-Gap build removes
-even that. Verified by actual `socket.create_connection` **and `sendto`** attempts
-in the tests.
+`create_connection`, `getaddrinfo`, the legacy name resolvers `gethostbyname` /
+`gethostbyname_ex` / `gethostbyaddr`, and the **connectionless `sendto` /
+`sendmsg`** (a UDP datagram needs no `connect()`, so leaving those open would be a
+DNS-tunnel-style exfiltration path) — **before Qt or any dependency is imported**
+(see the top of `app.py`). Name resolution is guarded through *both* the modern
+`getaddrinfo` and the older `gethostbyname*` family, so a public hostname cannot be
+resolved (the DNS query itself is a byte leaving the box) by either route.
+Non-loopback connections and datagrams fail closed and increment an audited
+counter. `AF_UNIX` sockets are exempt (filesystem-local IPC that cannot leave the
+machine). The only network whitelist is loopback (for an optional local Ollama);
+the Air-Gap build removes even that. Verified by actual `socket.create_connection`,
+`sendto`, **and `gethostbyname`** attempts in the tests.
 
 ### 3. The audit log is tamper-evident
 `AuditLog` (`core/security/audit.py`) is append-only JSONL where each entry
 carries the previous entry's hash. `verify()` recomputes the whole chain and
 reports the first entry that fails — detecting content mutation, hash forgery
-(without the key), reordering, insertion, and mid-file truncation, with the exact
-sequence number. With a secret key the chain uses HMAC-SHA256, so an attacker who
-can rewrite the file and recompute plain SHA-256 still cannot forge a valid chain.
-Prompt and file **contents are never stored** — only SHA-256 fingerprints, sizes,
-and paths.
+(without the key), reordering, insertion, and mid-file deletion, with the exact
+sequence number. Deleting the *newest* entries would leave a shorter chain that is
+internally valid, so the log is anchored by a **signed side-checkpoint** recording
+the last sequence number, hash, and count; `verify()` compares the chain against it
+and flags a lopped-off tail (or a wholesale deletion) that chain-only checking would
+miss. With a secret key the chain and the checkpoint both use HMAC-SHA256, so an
+attacker who can rewrite the files and recompute plain SHA-256 still cannot forge
+either. (The checkpoint is a sidecar on the same machine; for the strongest
+guarantee against an attacker who can also delete it, keep the periodic off-box
+export in the checklist below.) Prompt and file **contents are never stored** — only
+SHA-256 fingerprints, sizes, and paths.
 
 ### 4. Data at rest is authenticated-encrypted
 `crypto.py` seals every sensitive column with **AES-256-GCM**; keys are derived
@@ -124,6 +137,15 @@ that it does:
 - **Encryption protects data at rest, not a running process.** While BastionBox
   is unlocked, keys are in memory. "Lock now" wipes the key; a memory-scraping
   adversary with code execution on an unlocked machine is out of scope.
+- **Reading an untrusted document is native-code parsing.** PDF/Word/Excel
+  extraction relies on libraries with native components (PyMuPDF, Pillow, and the
+  like). A malicious file that triggers a memory-safety bug in one of them runs
+  code that the path jail and network guard cannot stop — the parser is *inside*
+  the trusted process. Treat "read this datasheet from an unknown source" as
+  elevated risk: pin and monitor those library versions, keep an out-of-band patch
+  path in your SLA (air-gapped boxes do not self-update), and for the highest
+  assurance isolate extraction in a reduced-privilege child (Windows Job Object /
+  AppContainer).
 - **Accreditation is your organization's job.** BastionBox supplies technical
   controls and evidence (logs, verifiers, encryption). It cannot grant an ATO.
 

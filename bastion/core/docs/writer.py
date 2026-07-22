@@ -103,9 +103,23 @@ def build_docx(blocks: Sequence[dict[str, Any]]) -> bytes:
             from docx.enum.text import WD_ALIGN_PARAGRAPH
             from docx.shared import Inches
             from . import charts as _charts
-            png = _charts.chart_png(block.get("spec") or {})
-            doc.add_picture(io.BytesIO(png), width=Inches(5.5))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            spec = block.get("spec") or {}
+            try:
+                png = _charts.chart_png(spec)
+                doc.add_picture(io.BytesIO(png), width=Inches(5.5))
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            except Exception:  # noqa: BLE001 - no raster engine or bad spec:
+                # fall back to the chart's data as a table so the doc still saves.
+                try:
+                    rows = _charts.chart_table(spec)
+                except Exception:  # noqa: BLE001 - spec unusable; skip the block
+                    rows = []
+                if rows and rows[0]:
+                    table = doc.add_table(rows=len(rows), cols=len(rows[0]))
+                    table.style = "Light Grid Accent 1"
+                    for r, row in enumerate(rows):
+                        for c, val in enumerate(row):
+                            table.rows[r].cells[c].text = str(val)
         elif kind == "image":
             data = block.get("data")
             if data:
@@ -290,9 +304,25 @@ def build_pdf(blocks: Sequence[dict[str, Any]], title: str = "") -> bytes:
                 flow.append(t)
         elif kind == "chart":
             from . import charts as _charts
-            drawing = _charts.build_drawing(block.get("spec") or {})
-            drawing.hAlign = "CENTER"     # true vector art in the PDF
-            flow.append(drawing)
+            spec = block.get("spec") or {}
+            try:
+                drawing = _charts.build_drawing(spec)
+                drawing.hAlign = "CENTER"     # true vector art in the PDF
+                flow.append(drawing)
+            except Exception:  # noqa: BLE001 - bad spec: degrade to a data table
+                try:
+                    rows = _charts.chart_table(spec)
+                except Exception:  # noqa: BLE001 - spec unusable; skip the block
+                    rows = []
+                if rows and rows[0]:
+                    t = Table(rows, hAlign="CENTER")
+                    t.setStyle(TableStyle([
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#54806C")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ]))
+                    flow.append(t)
         elif kind == "image":
             data = block.get("data")
             if data:
@@ -383,10 +413,25 @@ def build_html(blocks: Sequence[dict[str, Any]], title: str = "") -> bytes:
                              f"<tbody>{body}</tbody></table>")
         elif kind == "chart":
             from . import charts as _charts
-            png = _charts.chart_png(block.get("spec") or {})
-            b64 = base64.b64encode(png).decode("ascii")
-            parts.append(f'<figure><img alt="chart" '
-                         f'src="data:image/png;base64,{b64}"></figure>')
+            spec = block.get("spec") or {}
+            try:
+                png = _charts.chart_png(spec)
+                b64 = base64.b64encode(png).decode("ascii")
+                parts.append(f'<figure><img alt="chart" '
+                             f'src="data:image/png;base64,{b64}"></figure>')
+            except Exception:  # noqa: BLE001 - no render engine or bad spec:
+                # degrade the chart to its data table so the report still writes
+                # (the numbers always outrank the picture).
+                try:
+                    rows = _charts.chart_table(spec)
+                except Exception:  # noqa: BLE001 - spec unusable; skip the block
+                    continue
+                head = "".join(f"<th>{_fmt(v)}</th>" for v in rows[0])
+                body = "".join(
+                    "<tr>" + "".join(f"<td>{_fmt(v)}</td>" for v in row) + "</tr>"
+                    for row in rows[1:])
+                parts.append(f"<table><thead><tr>{head}</tr></thead>"
+                             f"<tbody>{body}</tbody></table>")
         elif kind == "image":
             data = block.get("data")
             if data:

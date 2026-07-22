@@ -13,33 +13,21 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QHBoxLayout, QLabel,
 
 from .theme import Palette
 from .widgets.tactical import Card, HudFrame, StatusPill, StencilLabel
+from ..core.i18n import t
 
+# (headline key, body key, pill key, pill status) — resolved at build time so
+# the tour opens in whichever language the app is currently set to.
 _STEPS = [
-    ("NOTHING LEAVES",
-     "BastionBox runs entirely on this machine. An in-process network guard is "
-     "armed before anything else loads and blocks every outbound connection — "
-     "including a sloppy dependency's. The Security tab shows a blocked-attempt "
-     "counter that reads 0 in normal use.",
-     "OFFLINE · SEALED", "secure"),
-    ("YOU APPROVE EVERY WRITE",
-     "Mount a folder as a workspace and the agent can read and edit inside it — "
-     "and nowhere else, enforced by the path jail. Every write is shown to you as "
-     "a diff to Approve or Reject before it touches disk. A rejection is fed back "
-     "to the model so it adapts.",
-     "ASK PER WRITE", "armed"),
-    ("EVERYTHING IS PROVABLE",
-     "Every prompt, tool call, file path, diff, and command is recorded in a "
-     "hash-chained audit log. One click re-verifies the whole chain and flags any "
-     "tampering. Data at rest is AES-256-GCM encrypted; secure-delete wipes a "
-     "workspace's entire footprint.",
-     "AUDIT · VERIFIABLE", "secure"),
+    ("ob.s1_head", "ob.s1_body", "ob.s1_pill", "secure"),
+    ("ob.s2_head", "ob.s2_body", "perm.ask", "armed"),
+    ("ob.s3_head", "ob.s3_body", "ob.s3_pill", "secure"),
 ]
 
 
 class Onboarding(QDialog):
     def __init__(self, palette: Palette, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Welcome to BastionBox")
+        self.setWindowTitle(t("ob.title"))
         self.setMinimumSize(640, 460)
         self._palette = palette
 
@@ -50,23 +38,24 @@ class Onboarding(QDialog):
         title = QLabel("BASTIONBOX")
         title.setProperty("role", "h1")
         v.addWidget(title)
-        tag = QLabel("The AI that never phones home.")
+        tag = QLabel(t("app.tagline"))
         tag.setProperty("role", "readout")
         v.addWidget(tag)
 
         self._stack = QStackedWidget()
-        for headline, body, pill_text, status in _STEPS:
-            self._stack.addWidget(self._step(headline, body, pill_text, status))
+        for head_key, body_key, pill_key, status in _STEPS:
+            self._stack.addWidget(
+                self._step(t(head_key), t(body_key), t(pill_key), status))
         v.addWidget(self._stack, 1)
 
         # Controls row: don't-show-again + detailed tutorial + nav.
         opts = QHBoxLayout()
-        self._show_again = QCheckBox("Show this tour next launch")
+        self._show_again = QCheckBox(t("ob.show_again"))
         self._show_again.setChecked(False)  # default: don't nag on 2nd open
         opts.addWidget(self._show_again)
         opts.addStretch(1)
-        tut = QPushButton("DETAILED TUTORIAL")
-        tut.setToolTip("Step-by-step: load a GGUF, run the agent, edit files & docs")
+        tut = QPushButton(t("btn.tutorial"))
+        tut.setToolTip(t("ob.tutorial_tip"))
         tut.clicked.connect(self._open_tutorial)
         opts.addWidget(tut)
         v.addLayout(opts)
@@ -76,9 +65,9 @@ class Onboarding(QDialog):
         self._dots.setProperty("role", "readout")
         row.addWidget(self._dots)
         row.addStretch(1)
-        self._back = QPushButton("BACK")
+        self._back = QPushButton(t("ob.back").upper())
         self._back.clicked.connect(self._prev)
-        self._next = QPushButton("NEXT")
+        self._next = QPushButton(t("ob.next").upper())
         self._next.setProperty("variant", "primary")
         self._next.clicked.connect(self._advance)
         row.addWidget(self._back)
@@ -126,7 +115,8 @@ class Onboarding(QDialog):
         i = self._stack.currentIndex()
         last = i == self._stack.count() - 1
         self._back.setEnabled(i > 0)
-        self._next.setText("ENTER BASTIONBOX" if last else "NEXT")
+        self._next.setText(t("ob.enter").upper() if last
+                           else t("ob.next").upper())
         self._dots.setText("  ".join("●" if j == i else "○"
                                      for j in range(self._stack.count())))
 

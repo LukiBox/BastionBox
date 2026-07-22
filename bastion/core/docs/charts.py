@@ -102,6 +102,23 @@ def _number(v: Any) -> float:
         raise ChartError(f"chart value {v!r} is not a number") from exc
 
 
+def chart_table(spec: Any) -> list[list[str]]:
+    """Degrade a chart spec to a plain data table (header + one row per series).
+
+    Used when no rendering engine is available (e.g. reportlab absent on a
+    partial install) so a report never hard-fails: the numbers survive even if
+    the picture can't be drawn. Header is the title/label row; each series is a
+    row of its values. Raises :class:`ChartError` only if the spec itself is
+    unusable — callers treat that as "skip this block", not "abort the report".
+    """
+    spec = normalize_spec(spec)
+    header = [spec["title"] or "Series", *spec["labels"]]
+    rows = [header]
+    for s in spec["series"]:
+        rows.append([s["name"] or "", *[f"{v:g}" for v in s["values"]]])
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # rendering
 # ---------------------------------------------------------------------------

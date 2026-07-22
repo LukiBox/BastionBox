@@ -13,9 +13,12 @@ Why in-process
 A sloppy or malicious *dependency* is the realistic leak, not our own code. By
 monkeypatching the ``socket`` primitives that every networking library
 ultimately funnels through (``connect``, ``connect_ex``, ``create_connection``,
-``getaddrinfo`` for name resolution, and the connectionless ``sendto`` /
-``sendmsg`` — a UDP datagram needs no ``connect()``, so leaving those unpatched
-would be an open exfiltration path), we catch third-party code we never wrote.
+the name-resolution family ``getaddrinfo`` / ``gethostbyname`` /
+``gethostbyname_ex`` / ``gethostbyaddr`` — even a bare DNS lookup for a public
+host is a byte leaving the box, the classic DNS-tunnel channel — and the
+connectionless ``sendto`` / ``sendmsg``, since a UDP datagram needs no
+``connect()`` and leaving those unpatched would be an open exfiltration path),
+we catch third-party code we never wrote.
 AF_UNIX sockets are exempt: they are filesystem-local IPC by definition and
 cannot carry a byte off the machine. The guard cannot make the OS airtight — a native extension calling the
 Win32 socket API directly bypasses Python — and the docs say so plainly
@@ -122,6 +125,14 @@ class NetworkGuard:
         self._orig["sendto"] = socket.socket.sendto
         self._orig["create_connection"] = socket.create_connection
         self._orig["getaddrinfo"] = socket.getaddrinfo
+        # The legacy name-resolution family is a real egress path too: a DNS
+        # query for a public host is itself a byte leaving the box (a classic
+        # DNS-tunnel exfiltration channel). getaddrinfo is patched above; these
+        # older resolvers funnel straight to the OS resolver and would slip past
+        # it, so route them through the same policy.
+        self._orig["gethostbyname"] = socket.gethostbyname
+        self._orig["gethostbyname_ex"] = socket.gethostbyname_ex
+        self._orig["gethostbyaddr"] = socket.gethostbyaddr
         if hasattr(socket.socket, "sendmsg"):  # not available on Windows
             self._orig["sendmsg"] = socket.socket.sendmsg
 
@@ -190,11 +201,30 @@ class NetworkGuard:
                 raise guard._deny(str(host), None, "getaddrinfo")
             return guard._orig["getaddrinfo"](host, *args, **kwargs)
 
+        def gethostbyname(hostname):  # type: ignore[no-redef]
+            if not guard._permit(hostname if isinstance(hostname, str) else None):
+                raise guard._deny(str(hostname), None, "gethostbyname")
+            return guard._orig["gethostbyname"](hostname)
+
+        def gethostbyname_ex(hostname):  # type: ignore[no-redef]
+            if not guard._permit(hostname if isinstance(hostname, str) else None):
+                raise guard._deny(str(hostname), None, "gethostbyname_ex")
+            return guard._orig["gethostbyname_ex"](hostname)
+
+        def gethostbyaddr(ip_or_host):  # type: ignore[no-redef]
+            # Reverse lookups reach the resolver too; only loopback is free.
+            if not guard._permit(ip_or_host if isinstance(ip_or_host, str) else None):
+                raise guard._deny(str(ip_or_host), None, "gethostbyaddr")
+            return guard._orig["gethostbyaddr"](ip_or_host)
+
         socket.socket.connect = connect          # type: ignore[assignment]
         socket.socket.connect_ex = connect_ex    # type: ignore[assignment]
         socket.socket.sendto = sendto            # type: ignore[assignment]
         socket.create_connection = create_connection  # type: ignore[assignment]
         socket.getaddrinfo = getaddrinfo         # type: ignore[assignment]
+        socket.gethostbyname = gethostbyname     # type: ignore[assignment]
+        socket.gethostbyname_ex = gethostbyname_ex  # type: ignore[assignment]
+        socket.gethostbyaddr = gethostbyaddr     # type: ignore[assignment]
         if "sendmsg" in self._orig:
             socket.socket.sendmsg = sendmsg      # type: ignore[assignment]
         self.installed = True
@@ -209,6 +239,9 @@ class NetworkGuard:
         socket.socket.sendto = self._orig["sendto"]                # type: ignore[assignment]
         socket.create_connection = self._orig["create_connection"]  # type: ignore[assignment]
         socket.getaddrinfo = self._orig["getaddrinfo"]            # type: ignore[assignment]
+        socket.gethostbyname = self._orig["gethostbyname"]        # type: ignore[assignment]
+        socket.gethostbyname_ex = self._orig["gethostbyname_ex"]  # type: ignore[assignment]
+        socket.gethostbyaddr = self._orig["gethostbyaddr"]        # type: ignore[assignment]
         if "sendmsg" in self._orig:
             socket.socket.sendmsg = self._orig["sendmsg"]          # type: ignore[assignment]
         self.installed = False

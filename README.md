@@ -21,7 +21,7 @@ BastionBox gives you a chat model and a permissioned agent that run entirely on 
 
 For anyone whose documents or code simply must not leave the building — defense and aerospace, legal, medical, finance, classified-adjacent work, or a developer who refuses to ship their IP to an API. Cloud assistants are capable, but they send your data to someone else's servers. BastionBox keeps the same chat-and-agent workflow and runs the model on your own hardware instead.
 
-The honest part: local models are weaker than the big cloud ones, and BastionBox doesn't pretend otherwise. It makes up the difference with engineering — grammar-constrained tool calls, a planning notepad, tight retrieval instead of giant contexts, and a diff you approve before anything is written. The promise isn't "a frontier model at home"; it's *a trustworthy assistant that provably never phones home.*
+The honest part: local models are weaker than the big cloud ones, and BastionBox doesn't pretend otherwise. It makes up the difference with engineering — grammar-constrained tool calls, a planning notepad, tight retrieval instead of giant contexts, and a diff you approve before anything is written. The promise isn't "a frontier model at home"; it's *a trustworthy assistant that keeps your data on your machine — enforced by an always-on network guard, and provable with a tamper-evident audit trail of everything it did.*
 
 ---
 
@@ -65,6 +65,8 @@ Permissioned agent — reads, writes, and edits files inside workspaces you moun
 
 Document workflows — read PDF, Word, Excel, and CSV, then write polished `.docx`, `.pdf`, `.html`, or `.xlsx` reports with charts, tables, and embedded photos. HTML reports are self-contained, so you can email one file.
 
+Drag and drop — drop a file straight onto the chat and its text is extracted locally and rides along with your next message, fitted to the context window and SHA-256 fingerprinted in the audit log.
+
 Exact tools, not guesses — a math evaluator does all the arithmetic (so a report's numbers are right, not model-estimated), and a duplicate-file finder hashes and groups files for you, catching identical content even under different names.
 
 Reference library — attach a big folder read-only, then search datasheets and standards by keyword and cite them, without the agent ever being able to write there.
@@ -73,7 +75,7 @@ Security walls, built first — a path jail (the agent can't reach anything outs
 
 Reliable multi-step work — a planning notepad keeps the agent's plan and findings in front of it even on long jobs, and it can pause to ask you a clarifying question when it's genuinely stuck.
 
-Bilingual UI — English by default; switch to Polish with one click (the choice is remembered).
+Bilingual UI — English by default; switch to Polish with one click (the choice is remembered). Every screen speaks both languages — dialogs, the onboarding tour, the tutorial, and the agent's trace messages included.
 
 Everything runs locally. Nothing leaves your computer — not even the model.
 

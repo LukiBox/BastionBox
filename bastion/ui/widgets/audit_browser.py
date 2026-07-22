@@ -12,11 +12,13 @@ from PySide6.QtWidgets import (QHBoxLayout, QHeaderView, QLabel, QLineEdit,
                                QPushButton, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
+from ...core.i18n import t
 from ...core.security.audit import AuditLog
 from .tactical import StatusPill
 
 
-_COLS = ("SEQ", "TIME", "KIND", "DETAIL")
+_COL_KEYS = ("audit.col_seq", "audit.col_time", "audit.col_kind",
+             "audit.col_detail")
 
 
 class AuditBrowser(QWidget):
@@ -28,32 +30,33 @@ class AuditBrowser(QWidget):
         root.setSpacing(14)
 
         header = QHBoxLayout()
-        title = QLabel("AUDIT TRAIL")
+        title = QLabel(t("audit.title"))
         title.setProperty("role", "h1")
         header.addWidget(title)
         header.addStretch(1)
-        self._status = StatusPill("NOT VERIFIED", "offline")
+        self._status = StatusPill(t("sec.pill_not_verified"), "offline")
         header.addWidget(self._status)
-        verify = QPushButton("VERIFY")
+        verify = QPushButton(t("audit.verify").upper())
         verify.setProperty("variant", "secure")
         verify.clicked.connect(self._verify)
         header.addWidget(verify)
-        export = QPushButton("EXPORT")
-        export.setToolTip("Export the audit log for off-box review (copies the JSONL)")
+        export = QPushButton(t("audit.export").upper())
+        export.setToolTip(t("audit.export_tooltip"))
         export.clicked.connect(self._export)
         header.addWidget(export)
-        reload_btn = QPushButton("RELOAD")
+        reload_btn = QPushButton(t("audit.reload").upper())
         reload_btn.clicked.connect(self.reload)
         header.addWidget(reload_btn)
         root.addLayout(header)
 
         self._filter = QLineEdit()
-        self._filter.setPlaceholderText("Filter by kind or detail (e.g. file_write, command)…")
+        self._filter.setPlaceholderText(t("audit.filter_placeholder"))
         self._filter.textChanged.connect(self._apply_filter)
         root.addWidget(self._filter)
 
-        self._table = QTableWidget(0, len(_COLS))
-        self._table.setHorizontalHeaderLabels(_COLS)
+        self._table = QTableWidget(0, len(_COL_KEYS))
+        self._table.setHorizontalHeaderLabels(
+            [t(k).upper() for k in _COL_KEYS])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -114,24 +117,29 @@ class AuditBrowser(QWidget):
     def _verify(self) -> None:
         result = self._audit.verify()
         if result.ok:
-            self._status.set_status(f"VALID · {result.entries}", "secure")
+            self._status.set_status(
+                t("audit.pill_valid", entries=result.entries), "secure")
         else:
-            self._status.set_status(f"TAMPERED · #{result.first_bad_seq}", "blocked")
+            self._status.set_status(
+                t("audit.pill_tampered", seq=result.first_bad_seq), "blocked")
 
     def _export(self) -> None:
         from PySide6.QtWidgets import QFileDialog, QMessageBox
         import shutil
         if not self._audit.path.exists():
-            QMessageBox.information(self, "Nothing to export", "The audit log is empty.")
+            QMessageBox.information(self, t("audit.empty_title"),
+                                    t("audit.empty"))
             return
         dest, _ = QFileDialog.getSaveFileName(
-            self, "Export audit log", "bastionbox-audit.jsonl", "JSONL (*.jsonl)")
+            self, t("audit.export_dialog"), "bastionbox-audit.jsonl",
+            "JSONL (*.jsonl)")
         if not dest:
             return
         shutil.copyfile(self._audit.path, dest)
         result = self._audit.verify()
+        status = (t("audit.exported_valid") if result.ok
+                  else t("audit.exported_tampered", seq=result.first_bad_seq))
         QMessageBox.information(
-            self, "Audit exported",
-            f"Copied {result.entries} entries to:\n{dest}\n\nChain status at export: "
-            + ("VALID — verify it again off-box with the same tool." if result.ok
-               else f"TAMPERED at entry {result.first_bad_seq}."))
+            self, t("audit.exported_title"),
+            t("audit.exported", entries=result.entries, dest=dest,
+              status=status))

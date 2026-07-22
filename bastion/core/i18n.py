@@ -228,6 +228,232 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "chat.model_loaded_generic": ("A local model is now live. Replies come "
                                       "from it, still fully on this machine."),
         "chat.context_is": "Context window: {n} tokens.",
+        "chat.you": "You",
+        "chat.chip_mode": "Mode",
+        "chat.chip_persona": "Persona",
+        "chat.chip_library": "Library",
+        "chat.chip_model": "Model",
+        "chat.chip_trace": "Agent trace",
+        "chat.chip_compacted": "Context compacted",
+        "chat.chip_attachment": "Attachment",
+        "chat.default_title": "Conversation",
+        "chat.library_note": ("Reference library attached (read-only): {name}. "
+                              "I can search it with keywords and read documents "
+                              "from it; I can never write there."),
+        "chat.agent_armed": ("Agent armed on workspace “{name}” ({perm}). I can "
+                             "read and edit files here — every write is shown "
+                             "to you as a diff to approve."),
+        "chat.agent_disarmed": "Returned to chat mode. No workspace is mounted.",
+        "chat.persona_switched": ("Switched to persona “{name}”. Tone and focus "
+                                  "updated; the security posture is unchanged."),
+        "chat.persona_switched_custom": ("Switched to custom persona “{name}”. "
+                                         "Tone and focus updated; the security "
+                                         "posture is unchanged."),
+        "chat.compact_nothing": "Not enough earlier context to compact yet.",
+        "chat.compact_marker": ("Earlier turns were summarized to free context "
+                                "(the model now sees this summary in their "
+                                "place, plus the most recent messages):"),
+        "chat.history_disabled": "(persistence disabled)",
+        "chat.history_empty": "(no saved conversations in this scope)",
+        # chat attachments (drag & drop) --------------------------------------
+        "chat.attach_clear": "Clear",
+        "chat.attach_bar_tooltip": ("These files ride along with your next "
+                                    "message — their text is read locally and "
+                                    "given to the model."),
+        "chat.attach_added": ("Attached “{name}” ({kind}, {chars} characters). "
+                              "It rides along with your next message."),
+        "chat.attach_dir": ("“{name}” is a folder. Drop individual files, or "
+                            "mount the folder as a workspace / attach it as a "
+                            "read-only library."),
+        "chat.attach_too_big": ("“{name}” is too large to attach ({mb} MB). "
+                                "Mount its folder as a workspace and let the "
+                                "agent read it with tools instead."),
+        "chat.attach_unsupported": ("“{name}” looks binary or is an unsupported "
+                                    "type. I can attach PDF, Word, Excel, CSV, "
+                                    "and plain-text/code files."),
+        "chat.attach_failed": "Could not attach “{name}”: {error}",
+        "chat.attach_line": "📎 {name} ({chars} characters)",
+        # diff / command approval dialogs --------------------------------------
+        "diff.title": "Review change — approval required",
+        "diff.new_file": "New file",
+        "diff.edit": "Edit",
+        "diff.workspace_line": ("Workspace: {name}  ·  review before it is "
+                                "written"),
+        "diff.note_placeholder": ("Optional note on rejection (fed back to the "
+                                  "agent)…"),
+        "cmd.title": "Run command — approval required",
+        "cmd.body": ("The agent wants to run, jailed to the workspace:\n\n"
+                     "    {command}\n\nOutput is captured and logged."),
+        # quick-ask palette ----------------------------------------------------
+        "qa.title": "Quick Ask",
+        "qa.pill": "OFFLINE · SEALED",
+        "qa.placeholder": ("Ask anything — Esc to dismiss. Nothing leaves this "
+                           "machine."),
+        "qa.clipboard": "Use clipboard as context",
+        "qa.hint": "↩ ask   ·   Esc close",
+        # audit browser --------------------------------------------------------
+        "audit.title": "AUDIT TRAIL",
+        "audit.verify": "Verify",
+        "audit.export": "Export",
+        "audit.reload": "Reload",
+        "audit.export_tooltip": ("Export the audit log for off-box review "
+                                 "(copies the JSONL)"),
+        "audit.filter_placeholder": ("Filter by kind or detail (e.g. "
+                                     "file_write, command)…"),
+        "audit.col_seq": "Seq",
+        "audit.col_time": "Time",
+        "audit.col_kind": "Kind",
+        "audit.col_detail": "Detail",
+        "audit.pill_valid": "VALID · {entries}",
+        "audit.pill_tampered": "TAMPERED · #{seq}",
+        "audit.empty_title": "Nothing to export",
+        "audit.empty": "The audit log is empty.",
+        "audit.export_dialog": "Export audit log",
+        "audit.exported_title": "Audit exported",
+        "audit.exported": ("Copied {entries} entries to:\n{dest}\n\nChain "
+                           "status at export: {status}"),
+        "audit.exported_valid": ("VALID — verify it again off-box with the "
+                                 "same tool."),
+        "audit.exported_tampered": "TAMPERED at entry {seq}.",
+        # onboarding tour ------------------------------------------------------
+        "ob.title": "Welcome to BastionBox",
+        "ob.s1_head": "NOTHING LEAVES",
+        "ob.s1_body": ("BastionBox runs entirely on this machine. An in-process "
+                       "network guard is armed before anything else loads and "
+                       "blocks every outbound connection — including a sloppy "
+                       "dependency's. The Security tab shows a blocked-attempt "
+                       "counter that reads 0 in normal use."),
+        "ob.s1_pill": "OFFLINE · SEALED",
+        "ob.s2_head": "YOU APPROVE EVERY WRITE",
+        "ob.s2_body": ("Mount a folder as a workspace and the agent can read "
+                       "and edit inside it — and nowhere else, enforced by the "
+                       "path jail. Every write is shown to you as a diff to "
+                       "Approve or Reject before it touches disk. A rejection "
+                       "is fed back to the model so it adapts."),
+        "ob.s3_head": "EVERYTHING IS PROVABLE",
+        "ob.s3_body": ("Every prompt, tool call, file path, diff, and command "
+                       "is recorded in a hash-chained audit log. One click "
+                       "re-verifies the whole chain and flags any tampering. "
+                       "Data at rest is AES-256-GCM encrypted; secure-delete "
+                       "wipes a workspace's entire footprint."),
+        "ob.s3_pill": "AUDIT · VERIFIABLE",
+        "ob.show_again": "Show this tour next launch",
+        "ob.tutorial_tip": ("Step-by-step: load a GGUF, run the agent, edit "
+                            "files & docs"),
+        "ob.back": "Back",
+        "ob.next": "Next",
+        "ob.enter": "Enter BastionBox",
+        # theme picker ---------------------------------------------------------
+        "theme.window": "Choose your display",
+        "theme.title": "DISPLAY THEME",
+        "theme.hint": ("Pick a look — it applies instantly. You can change it "
+                       "any time in Settings."),
+        "theme.dark_sub": "Deep forest + sage teal",
+        "theme.light_sub": "Soft sage + floating white",
+        "theme.remember": "Use this and don't ask at launch again",
+        # detailed tutorial ----------------------------------------------------
+        "tut.window": "BastionBox — Detailed Tutorial",
+        "tut.title": "HOW TO USE BASTIONBOX",
+        "tut.sub": ("Load a model · mount a workspace · read datasheets and "
+                    "write Word/Excel/PDF — all fully offline."),
+        "tut.s1_head": "1 · LOAD A MODEL (GGUF)",
+        "tut.s1_pill": "MODELS TAB",
+        "tut.s1_1": ("Open the Models tab. BastionBox reads any GGUF file "
+                     "straight off disk — models arrive by USB/media, never a "
+                     "download."),
+        "tut.s1_2": ("Click IMPORT GGUF… and pick your file (e.g. "
+                     "qwen2.5-14b-instruct-q4.gguf)."),
+        "tut.s1_3": ("Paste the SHA-256 you were given out-of-band. A green "
+                     "check means the file is authentic; a red flag means DO "
+                     "NOT load it."),
+        "tut.s1_4": ("The Hardware Optimizer shows the offload plan and the "
+                     "math — how many layers fit on your GPU and the context "
+                     "length that fits."),
+        "tut.s1_5": ("Prefer a 7–14B Q4 model for an 8 GB GPU; CPU-only works "
+                     "with a 3–8B Q4."),
+        "tut.s2_head": "2 · MOUNT A WORKSPACE & RUN THE AGENT",
+        "tut.s2_pill": "WORKSPACES TAB",
+        "tut.s2_1": ("Open Workspaces and click the permission chip to pick a "
+                     "tier: Read-only, Ask per write (recommended), or "
+                     "Auto-approve."),
+        "tut.s2_2": ("Click MOUNT WORKSPACE… and choose a folder. The agent is "
+                     "confined to that folder by the path jail and can touch "
+                     "nothing outside it."),
+        "tut.s2_3": ("You are dropped into Chat in agent mode. Ask it to do "
+                     "real work: \"rename check_tok to validate_token "
+                     "everywhere and update the docstring\"."),
+        "tut.s2_4": ("The agent inspects first (grep/read), then proposes "
+                     "edits. Each write shows a DIFF — Approve, or Reject with "
+                     "a note it will adapt to."),
+        "tut.s2_5": ("Ask it to run a check (e.g. \"run pytest -q\"); "
+                     "allowlisted commands run jailed, output captured in the "
+                     "transcript."),
+        "tut.s3_head": "3 · FILE EDITING & OFFICE DOCS",
+        "tut.s3_pill": "THE CORE FLOW",
+        "tut.s3_1": ("Drop a datasheet (.pdf), report (.docx) or sheet (.xlsx) "
+                     "into the mounted workspace folder — or drag it straight "
+                     "into the chat to attach it to your next message."),
+        "tut.s3_2": ("Ask: \"read the datasheet spec.pdf and summarize the "
+                     "electrical ratings into a Word report\". The agent calls "
+                     "read_document (page-aware for long PDFs) then "
+                     "write_document."),
+        "tut.s3_3": ("For tables/data, ask for Excel: \"extract the pin table "
+                     "from spec.pdf into pins.xlsx\" — it writes a real .xlsx "
+                     "with a styled header."),
+        "tut.s3_4": ("For code, ask it to create or edit files directly "
+                     "(write_file / edit_file) — basic scripts, configs, and "
+                     "docs, always behind a diff you approve."),
+        "tut.s3_5": ("Every written file lands inside the workspace, is shown "
+                     "for approval first, and is recorded in the tamper-evident "
+                     "audit log."),
+        "tut.s4_head": "4 · TEMPLATES & THE REFERENCE LIBRARY",
+        "tut.s4_pill": "EA WORKFLOW",
+        "tut.s4_1": ("Attach a big folder of datasheets/norms in Knowledge → "
+                     "Reference Library. It is READ-ONLY: the agent can search "
+                     "and read there, never write."),
+        "tut.s4_2": ("Ask: \"find the vibration section of MIL-STD-810 in the "
+                     "library and quote the procedure\" — the agent calls "
+                     "search_library with keywords, then read_document on the "
+                     "hits."),
+        "tut.s4_3": ("Put your company .docx template (logo, formatting) in "
+                     "the workspace or library, with placeholders: {{TITLE}}, "
+                     "{{SUMMARY}}, {{IMG:photo1}}, and a table row containing "
+                     "{{TABLE:results}}."),
+        "tut.s4_4": ("Ask: \"fill template company.docx with the climatic test "
+                     "results into report.docx\" — fill_template keeps your "
+                     "branding and swaps in text, photos, and test-data rows. "
+                     "Unfilled placeholders are reported, never silently "
+                     "dropped."),
+        "tut.s4_5": ("Pick the EA Test-Case Writer persona for MIL-STD-810-"
+                     "style requirements (REQ-ENV-001, −51 °C to +71 °C) and "
+                     "numbered Step 1./Step 2. procedures."),
+        "tut.s4_6": ("Reports can carry real charts and photos: the agent "
+                     "embeds workspace images with ![caption](photos/rig.png) "
+                     "and renders bar/line/pie charts from data it read — "
+                     "vector art in PDFs, crisp images in Word. "
+                     "write_spreadsheet can add a native, still-editable Excel "
+                     "chart."),
+        "tut.s5_head": "GOOD TO KNOW",
+        "tut.s5_pill": "SECURITY",
+        "tut.s5_1": ("Nothing leaves the machine — the network guard blocks "
+                     "every outbound connection; the Security tab's blocked "
+                     "counter should read 0 forever."),
+        "tut.s5_2": ("Everything is encrypted at rest; use Panic Controls to "
+                     "secure-delete a workspace's entire footprint or lock the "
+                     "key from memory."),
+        "tut.s5_3": ("Switch tone with the persona dropdown — or create your "
+                     "own persona with a custom system prompt in Settings → "
+                     "Assistant Personas."),
+        "tut.s5_4": ("The whole interface speaks English and Polish — switch "
+                     "live in Settings → Appearance & Language; the choice "
+                     "persists across launches."),
+        "tut.s5_5": ("Free context with COMPACT; start fresh with NEW. Summon "
+                     "quick-ask anywhere with Ctrl+Alt+Space."),
+        # misc chrome ----------------------------------------------------------
+        "meter.context": "Context",
+        "tray.sealed": "{name} · sealed",
+        "status.no_model": "no model loaded",
+        "app.credit": "Made by LukiBox",
         # security page ---------------------------------------------------------
         "sec.title": "SECURITY POSTURE",
         "sec.netguard": "Network Guard",
@@ -539,6 +765,245 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
                                       "Odpowiedzi pochodzą od niego, wciąż w "
                                       "całości na tym komputerze."),
         "chat.context_is": "Okno kontekstu: {n} tokenów.",
+        "chat.you": "Ty",
+        "chat.chip_mode": "Tryb",
+        "chat.chip_persona": "Persona",
+        "chat.chip_library": "Biblioteka",
+        "chat.chip_model": "Model",
+        "chat.chip_trace": "Ślad agenta",
+        "chat.chip_compacted": "Kontekst skompaktowany",
+        "chat.chip_attachment": "Załącznik",
+        "chat.default_title": "Rozmowa",
+        "chat.library_note": ("Dołączono bibliotekę referencyjną (tylko "
+                              "odczyt): {name}. Mogę ją przeszukiwać słowami "
+                              "kluczowymi i czytać z niej dokumenty; nigdy nie "
+                              "mogę tam zapisywać."),
+        "chat.agent_armed": ("Agent uzbrojony w przestrzeni „{name}” ({perm}). "
+                             "Mogę tu czytać i edytować pliki — każdy zapis "
+                             "zobaczysz jako różnicę do zatwierdzenia."),
+        "chat.agent_disarmed": ("Powrót do trybu czatu. Żadna przestrzeń nie "
+                                "jest zamontowana."),
+        "chat.persona_switched": ("Przełączono na personę „{name}”. Ton i "
+                                  "specjalizacja zaktualizowane; poziom "
+                                  "bezpieczeństwa bez zmian."),
+        "chat.persona_switched_custom": ("Przełączono na własną personę "
+                                         "„{name}”. Ton i specjalizacja "
+                                         "zaktualizowane; poziom "
+                                         "bezpieczeństwa bez zmian."),
+        "chat.compact_nothing": ("Za mało wcześniejszego kontekstu, aby "
+                                 "kompaktować."),
+        "chat.compact_marker": ("Starsze wypowiedzi streszczono, aby zwolnić "
+                                "kontekst (model widzi teraz w ich miejscu to "
+                                "streszczenie oraz najnowsze wiadomości):"),
+        "chat.history_disabled": "(zapisywanie wyłączone)",
+        "chat.history_empty": "(brak zapisanych rozmów w tym zakresie)",
+        # załączniki na czacie (przeciągnij i upuść) ---------------------------
+        "chat.attach_clear": "Wyczyść",
+        "chat.attach_bar_tooltip": ("Te pliki dołączą do Twojej następnej "
+                                    "wiadomości — ich tekst jest odczytywany "
+                                    "lokalnie i przekazywany modelowi."),
+        "chat.attach_added": ("Załączono „{name}” ({kind}, {chars} znaków). "
+                              "Dołączy do Twojej następnej wiadomości."),
+        "chat.attach_dir": ("„{name}” to folder. Upuść pojedyncze pliki albo "
+                            "zamontuj folder jako przestrzeń / dołącz jako "
+                            "bibliotekę tylko do odczytu."),
+        "chat.attach_too_big": ("„{name}” jest zbyt duży, aby go załączyć "
+                                "({mb} MB). Zamontuj jego folder jako "
+                                "przestrzeń i pozwól agentowi czytać go "
+                                "narzędziami."),
+        "chat.attach_unsupported": ("„{name}” wygląda na plik binarny lub "
+                                    "nieobsługiwany typ. Mogę załączać PDF, "
+                                    "Word, Excel, CSV oraz pliki "
+                                    "tekstowe/kod."),
+        "chat.attach_failed": "Nie udało się załączyć „{name}”: {error}",
+        "chat.attach_line": "📎 {name} ({chars} znaków)",
+        # okna zatwierdzania różnic i poleceń ----------------------------------
+        "diff.title": "Przegląd zmiany — wymagane zatwierdzenie",
+        "diff.new_file": "Nowy plik",
+        "diff.edit": "Edycja",
+        "diff.workspace_line": "Przestrzeń: {name}  ·  sprawdź przed zapisem",
+        "diff.note_placeholder": ("Opcjonalna notatka przy odrzuceniu (wraca "
+                                  "do agenta)…"),
+        "cmd.title": "Uruchomienie polecenia — wymagane zatwierdzenie",
+        "cmd.body": ("Agent chce uruchomić, w więzieniu przestrzeni:\n\n"
+                     "    {command}\n\nWynik jest przechwytywany i "
+                     "rejestrowany."),
+        # szybkie pytanie ------------------------------------------------------
+        "qa.title": "Szybkie pytanie",
+        "qa.pill": "OFFLINE · ZAPIECZĘTOWANY",
+        "qa.placeholder": ("Zapytaj o cokolwiek — Esc zamyka. Nic nie opuszcza "
+                           "tego komputera."),
+        "qa.clipboard": "Użyj schowka jako kontekstu",
+        "qa.hint": "↩ pytaj   ·   Esc zamknij",
+        # przeglądarka audytu --------------------------------------------------
+        "audit.title": "ŚLAD AUDYTU",
+        "audit.verify": "Zweryfikuj",
+        "audit.export": "Eksportuj",
+        "audit.reload": "Odśwież",
+        "audit.export_tooltip": ("Eksportuj dziennik audytu do przeglądu poza "
+                                 "maszyną (kopiuje JSONL)"),
+        "audit.filter_placeholder": ("Filtruj po rodzaju lub szczegółach (np. "
+                                     "file_write, command)…"),
+        "audit.col_seq": "Lp.",
+        "audit.col_time": "Czas",
+        "audit.col_kind": "Rodzaj",
+        "audit.col_detail": "Szczegóły",
+        "audit.pill_valid": "PRAWIDŁOWY · {entries}",
+        "audit.pill_tampered": "NARUSZONY · #{seq}",
+        "audit.empty_title": "Nie ma czego eksportować",
+        "audit.empty": "Dziennik audytu jest pusty.",
+        "audit.export_dialog": "Eksport dziennika audytu",
+        "audit.exported_title": "Wyeksportowano audyt",
+        "audit.exported": ("Skopiowano {entries} wpisów do:\n{dest}\n\nStan "
+                           "łańcucha przy eksporcie: {status}"),
+        "audit.exported_valid": ("PRAWIDŁOWY — zweryfikuj ponownie poza "
+                                 "maszyną tym samym narzędziem."),
+        "audit.exported_tampered": "NARUSZONY przy wpisie {seq}.",
+        # wprowadzenie ---------------------------------------------------------
+        "ob.title": "Witaj w BastionBox",
+        "ob.s1_head": "NIC NIE WYCHODZI",
+        "ob.s1_body": ("BastionBox działa w całości na tym komputerze. Straż "
+                       "sieciowa w procesie uzbraja się przed załadowaniem "
+                       "czegokolwiek innego i blokuje każde połączenie "
+                       "wychodzące — także niedbałej zależności. Zakładka "
+                       "Bezpieczeństwo pokazuje licznik zablokowanych prób, "
+                       "który w normalnym użyciu wskazuje 0."),
+        "ob.s1_pill": "OFFLINE · ZAPIECZĘTOWANY",
+        "ob.s2_head": "ZATWIERDZASZ KAŻDY ZAPIS",
+        "ob.s2_body": ("Zamontuj folder jako przestrzeń roboczą, a agent "
+                       "będzie mógł czytać i edytować w nim — i nigdzie "
+                       "indziej, co wymusza ścieżkowe więzienie. Każdy zapis "
+                       "jest pokazywany jako różnica do zatwierdzenia lub "
+                       "odrzucenia, zanim dotknie dysku. Odrzucenie wraca do "
+                       "modelu, więc ten się dostosowuje."),
+        "ob.s3_head": "WSZYSTKO DA SIĘ UDOWODNIĆ",
+        "ob.s3_body": ("Każdy prompt, wywołanie narzędzia, ścieżka pliku, "
+                       "różnica i polecenie trafia do dziennika audytu "
+                       "łączonego skrótami. Jedno kliknięcie weryfikuje cały "
+                       "łańcuch i wskazuje manipulacje. Dane w spoczynku są "
+                       "szyfrowane AES-256-GCM; bezpieczne usuwanie kasuje "
+                       "cały ślad przestrzeni."),
+        "ob.s3_pill": "AUDYT · WERYFIKOWALNY",
+        "ob.show_again": "Pokaż ten przewodnik przy następnym uruchomieniu",
+        "ob.tutorial_tip": ("Krok po kroku: załaduj GGUF, uruchom agenta, "
+                            "edytuj pliki i dokumenty"),
+        "ob.back": "Wstecz",
+        "ob.next": "Dalej",
+        "ob.enter": "Wejdź do BastionBox",
+        # wybór motywu ---------------------------------------------------------
+        "theme.window": "Wybierz wygląd",
+        "theme.title": "MOTYW WYŚWIETLANIA",
+        "theme.hint": ("Wybierz wygląd — zastosuje się natychmiast. Możesz go "
+                       "zmienić w każdej chwili w Ustawieniach."),
+        "theme.dark_sub": "Głęboki las + szałwiowy turkus",
+        "theme.light_sub": "Miękka szałwia + unosząca się biel",
+        "theme.remember": "Użyj tego i nie pytaj przy uruchomieniu",
+        # szczegółowy samouczek ------------------------------------------------
+        "tut.window": "BastionBox — szczegółowy samouczek",
+        "tut.title": "JAK UŻYWAĆ BASTIONBOX",
+        "tut.sub": ("Załaduj model · zamontuj przestrzeń · czytaj karty "
+                    "katalogowe i pisz Word/Excel/PDF — wszystko w pełni "
+                    "offline."),
+        "tut.s1_head": "1 · ZAŁADUJ MODEL (GGUF)",
+        "tut.s1_pill": "ZAKŁADKA MODELE",
+        "tut.s1_1": ("Otwórz zakładkę Modele. BastionBox czyta dowolny plik "
+                     "GGUF prosto z dysku — modele przybywają na USB/nośniku, "
+                     "nigdy przez pobieranie."),
+        "tut.s1_2": ("Kliknij IMPORTUJ GGUF… i wybierz plik (np. "
+                     "qwen2.5-14b-instruct-q4.gguf)."),
+        "tut.s1_3": ("Wklej SHA-256 otrzymany poza pasmem. Zielony znacznik "
+                     "oznacza plik autentyczny; czerwona flaga — NIE ładuj."),
+        "tut.s1_4": ("Optymalizator sprzętu pokazuje plan odciążenia i "
+                     "wyliczenia — ile warstw mieści się na Twoim GPU i jaka "
+                     "długość kontekstu się zmieści."),
+        "tut.s1_5": ("Na GPU 8 GB wybierz model 7–14B Q4; na samym CPU "
+                     "sprawdzi się 3–8B Q4."),
+        "tut.s2_head": "2 · ZAMONTUJ PRZESTRZEŃ I URUCHOM AGENTA",
+        "tut.s2_pill": "ZAKŁADKA PRZESTRZENIE",
+        "tut.s2_1": ("Otwórz Przestrzenie i kliknij plakietkę uprawnień, aby "
+                     "wybrać poziom: Tylko odczyt, Pytaj przy zapisie "
+                     "(zalecane) lub Auto-zatwierdzanie."),
+        "tut.s2_2": ("Kliknij ZAMONTUJ PRZESTRZEŃ… i wybierz folder. Agent "
+                     "jest ograniczony do tego folderu przez ścieżkowe "
+                     "więzienie i nie sięgnie nigdzie indziej."),
+        "tut.s2_3": ("Trafiasz do czatu w trybie agenta. Zleć prawdziwą "
+                     "pracę: „zmień nazwę check_tok na validate_token wszędzie "
+                     "i zaktualizuj docstring”."),
+        "tut.s2_4": ("Agent najpierw bada (grep/odczyt), potem proponuje "
+                     "zmiany. Każdy zapis pokazuje RÓŻNICĘ — zatwierdź albo "
+                     "odrzuć z notatką, do której się dostosuje."),
+        "tut.s2_5": ("Poproś o sprawdzenie (np. „uruchom pytest -q”); "
+                     "polecenia z białej listy działają w więzieniu, a wynik "
+                     "trafia do transkryptu."),
+        "tut.s3_head": "3 · EDYCJA PLIKÓW I DOKUMENTY BIUROWE",
+        "tut.s3_pill": "GŁÓWNY PRZEPŁYW",
+        "tut.s3_1": ("Upuść kartę katalogową (.pdf), raport (.docx) lub "
+                     "arkusz (.xlsx) do zamontowanego folderu przestrzeni — "
+                     "albo przeciągnij wprost na czat, aby dołączyć do "
+                     "następnej wiadomości."),
+        "tut.s3_2": ("Poproś: „przeczytaj kartę spec.pdf i streść parametry "
+                     "elektryczne do raportu Word”. Agent wywoła "
+                     "read_document (strona po stronie dla długich PDF), "
+                     "potem write_document."),
+        "tut.s3_3": ("Dla tabel/danych poproś o Excel: „wyciągnij tabelę "
+                     "pinów ze spec.pdf do pins.xlsx” — powstaje prawdziwy "
+                     ".xlsx ze stylizowanym nagłówkiem."),
+        "tut.s3_4": ("Dla kodu poproś o tworzenie lub edycję plików wprost "
+                     "(write_file / edit_file) — skrypty, konfiguracje i "
+                     "dokumenty, zawsze za różnicą, którą zatwierdzasz."),
+        "tut.s3_5": ("Każdy zapisany plik ląduje w przestrzeni, najpierw "
+                     "trafia do zatwierdzenia i jest odnotowany w odpornym na "
+                     "manipulacje dzienniku audytu."),
+        "tut.s4_head": "4 · SZABLONY I BIBLIOTEKA REFERENCYJNA",
+        "tut.s4_pill": "PRZEPŁYW EA",
+        "tut.s4_1": ("Dołącz duży folder kart katalogowych/norm w Wiedza → "
+                     "Biblioteka referencyjna. Jest TYLKO DO ODCZYTU: agent "
+                     "może tam szukać i czytać, nigdy zapisywać."),
+        "tut.s4_2": ("Poproś: „znajdź w bibliotece rozdział o wibracjach w "
+                     "MIL-STD-810 i zacytuj procedurę” — agent wywoła "
+                     "search_library ze słowami kluczowymi, potem "
+                     "read_document na trafieniach."),
+        "tut.s4_3": ("Umieść firmowy szablon .docx (logo, formatowanie) w "
+                     "przestrzeni lub bibliotece, z symbolami: {{TITLE}}, "
+                     "{{SUMMARY}}, {{IMG:photo1}} oraz wierszem tabeli "
+                     "zawierającym {{TABLE:results}}."),
+        "tut.s4_4": ("Poproś: „wypełnij szablon company.docx wynikami badań "
+                     "klimatycznych do report.docx” — fill_template zachowa "
+                     "branding i podmieni tekst, zdjęcia i wiersze danych. "
+                     "Niewypełnione symbole są raportowane, nigdy nie znikają "
+                     "po cichu."),
+        "tut.s4_5": ("Wybierz personę EA Test-Case Writer dla wymagań w stylu "
+                     "MIL-STD-810 (REQ-ENV-001, −51 °C do +71 °C) i "
+                     "numerowanych procedur Krok 1./Krok 2."),
+        "tut.s4_6": ("Raporty mogą nieść prawdziwe wykresy i zdjęcia: agent "
+                     "osadza obrazy z przestrzeni przez "
+                     "![podpis](photos/rig.png) i rysuje wykresy "
+                     "słupkowe/liniowe/kołowe z odczytanych danych — "
+                     "wektorowe w PDF, ostre obrazy w Wordzie. "
+                     "write_spreadsheet potrafi dodać natywny, wciąż "
+                     "edytowalny wykres Excela."),
+        "tut.s5_head": "WARTO WIEDZIEĆ",
+        "tut.s5_pill": "BEZPIECZEŃSTWO",
+        "tut.s5_1": ("Nic nie opuszcza komputera — straż sieciowa blokuje "
+                     "każde połączenie wychodzące; licznik zablokowanych prób "
+                     "w zakładce Bezpieczeństwo powinien zawsze wskazywać 0."),
+        "tut.s5_2": ("Wszystko jest szyfrowane w spoczynku; użyj Kontroli "
+                     "awaryjnych, aby bezpiecznie usunąć cały ślad "
+                     "przestrzeni lub usunąć klucz z pamięci."),
+        "tut.s5_3": ("Zmieniaj ton listą person — albo utwórz własną personę "
+                     "z własnym promptem systemowym w Ustawienia → Persony "
+                     "asystenta."),
+        "tut.s5_4": ("Cały interfejs mówi po angielsku i po polsku — przełącz "
+                     "na żywo w Ustawienia → Wygląd i język; wybór jest "
+                     "zapamiętywany."),
+        "tut.s5_5": ("Zwalniaj kontekst przyciskiem KOMPAKTUJ; zaczynaj od "
+                     "nowa przyciskiem NOWA. Przywołuj szybkie pytanie "
+                     "wszędzie skrótem Ctrl+Alt+Space."),
+        # pozostałe elementy interfejsu ----------------------------------------
+        "meter.context": "Kontekst",
+        "tray.sealed": "{name} · zapieczętowany",
+        "status.no_model": "brak załadowanego modelu",
+        "app.credit": "Stworzone przez LukiBox",
         # strona bezpieczeństwa ---------------------------------------------------
         "sec.title": "STAN BEZPIECZEŃSTWA",
         "sec.netguard": "Straż sieciowa",

@@ -108,6 +108,11 @@ def test_find_duplicates_clean_folder(env):
 
 # -- workflow 1: CSV → HTML report with chart -----------------------------------
 def test_csv_to_html_report_with_chart(env):
+    # This asserts the chart is rasterized into the HTML, which needs a render
+    # engine. Without reportlab the report still writes (chart degrades to a
+    # table — see test_html_report_degrades_chart_without_engine); skip the
+    # image-specific assertions rather than fail on a partial install.
+    pytest.importorskip("reportlab")
     ws_dir = env[3]
     (ws_dir / "bank_transactions.csv").write_text(
         "date,category,amount\n2026-04-03,Cloud,1200\n2026-05-11,Cloud,1350\n"

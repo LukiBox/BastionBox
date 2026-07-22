@@ -14,93 +14,38 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton
 
 from .theme import Palette
 from .widgets.tactical import Card, StatusPill
+from ..core.i18n import t
 
+# (headline key, pill key, pill status, step keys) — resolved at build time so
+# the manual opens in whichever language the app is currently set to.
 _SECTIONS = [
-    ("1 · LOAD A MODEL (GGUF)", "MODELS TAB", "armed", [
-        "Open the Models tab. BastionBox reads any GGUF file straight off disk — "
-        "models arrive by USB/media, never a download.",
-        "Click IMPORT GGUF… and pick your file (e.g. qwen2.5-14b-instruct-q4.gguf).",
-        "Paste the SHA-256 you were given out-of-band. A green check means the file "
-        "is authentic; a red flag means DO NOT load it.",
-        "The Hardware Optimizer shows the offload plan and the math — how many "
-        "layers fit on your GPU and the context length that fits.",
-        "Prefer a 7–14B Q4 model for an 8 GB GPU; CPU-only works with a 3–8B Q4.",
-    ]),
-    ("2 · MOUNT A WORKSPACE & RUN THE AGENT", "WORKSPACES TAB", "secure", [
-        "Open Workspaces and click the permission chip to pick a tier: Read-only, "
-        "Ask per write (recommended), or Auto-approve.",
-        "Click MOUNT WORKSPACE… and choose a folder. The agent is confined to that "
-        "folder by the path jail and can touch nothing outside it.",
-        "You are dropped into Chat in agent mode. Ask it to do real work: "
-        "\"rename check_tok to validate_token everywhere and update the docstring\".",
-        "The agent inspects first (grep/read), then proposes edits. Each write "
-        "shows a DIFF — Approve, or Reject with a note it will adapt to.",
-        "Ask it to run a check (e.g. \"run pytest -q\"); allowlisted commands run "
-        "jailed, output captured in the transcript.",
-    ]),
-    ("3 · FILE EDITING & OFFICE DOCS", "THE CORE FLOW", "secure", [
-        "Drop a datasheet (.pdf), report (.docx) or sheet (.xlsx) into the mounted "
-        "workspace folder.",
-        "Ask: \"read the datasheet spec.pdf and summarize the electrical ratings "
-        "into a Word report\". The agent calls read_document (page-aware for long "
-        "PDFs) then write_document.",
-        "For tables/data, ask for Excel: \"extract the pin table from spec.pdf into "
-        "pins.xlsx\" — it writes a real .xlsx with a styled header.",
-        "For code, ask it to create or edit files directly (write_file / edit_file) "
-        "— basic scripts, configs, and docs, always behind a diff you approve.",
-        "Every written file lands inside the workspace, is shown for approval "
-        "first, and is recorded in the tamper-evident audit log.",
-    ]),
-    ("4 · TEMPLATES & THE REFERENCE LIBRARY", "EA WORKFLOW", "armed", [
-        "Attach a big folder of datasheets/norms in Knowledge → Reference Library. "
-        "It is READ-ONLY: the agent can search and read there, never write.",
-        "Ask: \"find the vibration section of MIL-STD-810 in the library and "
-        "quote the procedure\" — the agent calls search_library with keywords, "
-        "then read_document on the hits.",
-        "Put your company .docx template (logo, formatting) in the workspace or "
-        "library, with placeholders: {{TITLE}}, {{SUMMARY}}, {{IMG:photo1}}, and "
-        "a table row containing {{TABLE:results}}.",
-        "Ask: \"fill template company.docx with the climatic test results into "
-        "report.docx\" — fill_template keeps your branding and swaps in text, "
-        "photos, and test-data rows. Unfilled placeholders are reported, never "
-        "silently dropped.",
-        "Pick the EA Test-Case Writer persona for MIL-STD-810-style requirements "
-        "(REQ-ENV-001, −51 °C to +71 °C) and numbered Step 1./Step 2. procedures.",
-        "Reports can carry real charts and photos: the agent embeds workspace "
-        "images with ![caption](photos/rig.png) and renders bar/line/pie charts "
-        "from data it read — vector art in PDFs, crisp images in Word. "
-        "write_spreadsheet can add a native, still-editable Excel chart.",
-    ]),
-    ("GOOD TO KNOW", "SECURITY", "secure", [
-        "Nothing leaves the machine — the network guard blocks every outbound "
-        "connection; the Security tab's blocked counter should read 0 forever.",
-        "Everything is encrypted at rest; use Panic Controls to secure-delete a "
-        "workspace's entire footprint or lock the key from memory.",
-        "Switch tone with the persona dropdown — or create your own persona with "
-        "a custom system prompt in Settings → Assistant Personas.",
-        "The whole interface speaks English and Polish — switch live in "
-        "Settings → Appearance & Language; the choice persists across launches.",
-        "Free context with COMPACT; start fresh with NEW. Summon quick-ask "
-        "anywhere with Ctrl+Alt+Space.",
-    ]),
+    ("tut.s1_head", "tut.s1_pill", "armed",
+     ["tut.s1_1", "tut.s1_2", "tut.s1_3", "tut.s1_4", "tut.s1_5"]),
+    ("tut.s2_head", "tut.s2_pill", "secure",
+     ["tut.s2_1", "tut.s2_2", "tut.s2_3", "tut.s2_4", "tut.s2_5"]),
+    ("tut.s3_head", "tut.s3_pill", "secure",
+     ["tut.s3_1", "tut.s3_2", "tut.s3_3", "tut.s3_4", "tut.s3_5"]),
+    ("tut.s4_head", "tut.s4_pill", "armed",
+     ["tut.s4_1", "tut.s4_2", "tut.s4_3", "tut.s4_4", "tut.s4_5", "tut.s4_6"]),
+    ("tut.s5_head", "tut.s5_pill", "secure",
+     ["tut.s5_1", "tut.s5_2", "tut.s5_3", "tut.s5_4", "tut.s5_5"]),
 ]
 
 
 class Tutorial(QDialog):
     def __init__(self, palette: Palette, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("BastionBox — Detailed Tutorial")
+        self.setWindowTitle(t("tut.window"))
         self.setMinimumSize(720, 620)
         self._palette = palette
 
         v = QVBoxLayout(self)
         v.setContentsMargins(24, 20, 24, 18)
         v.setSpacing(14)
-        title = QLabel("HOW TO USE BASTIONBOX")
+        title = QLabel(t("tut.title"))
         title.setProperty("role", "h1")
         v.addWidget(title)
-        sub = QLabel("Load a model · mount a workspace · read datasheets and write "
-                     "Word/Excel/PDF — all fully offline.")
+        sub = QLabel(t("tut.sub"))
         sub.setProperty("role", "readout")
         sub.setWordWrap(True)
         v.addWidget(sub)
@@ -112,15 +57,16 @@ class Tutorial(QDialog):
         col = QVBoxLayout(body)
         col.setContentsMargins(2, 2, 8, 2)
         col.setSpacing(14)
-        for headline, pill, status, steps in _SECTIONS:
-            col.addWidget(self._section(headline, pill, status, steps))
+        for head_key, pill_key, status, step_keys in _SECTIONS:
+            col.addWidget(self._section(t(head_key), t(pill_key), status,
+                                        [t(k) for k in step_keys]))
         col.addStretch(1)
         scroll.setWidget(body)
         v.addWidget(scroll, 1)
 
         row = QHBoxLayout()
         row.addStretch(1)
-        close = QPushButton("CLOSE")
+        close = QPushButton(t("common.close").upper())
         close.setProperty("variant", "primary")
         close.clicked.connect(self.accept)
         row.addWidget(close)

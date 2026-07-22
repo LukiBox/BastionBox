@@ -45,24 +45,26 @@ class QuickAskPalette(QWidget):
         v.setSpacing(10)
 
         header = QHBoxLayout()
-        header.addWidget(StencilLabel("Quick Ask"))
+        self._title_lbl = StencilLabel("")
+        header.addWidget(self._title_lbl)
         header.addStretch(1)
-        header.addWidget(StatusPill("OFFLINE · SEALED", "secure"))
+        self._pill = StatusPill("", "secure")
+        header.addWidget(self._pill)
         v.addLayout(header)
 
         self._input = QLineEdit()
-        self._input.setPlaceholderText("Ask anything — Esc to dismiss. Nothing leaves this machine.")
         self._input.returnPressed.connect(self._ask)
         v.addWidget(self._input)
 
         row = QHBoxLayout()
-        self._clip = QCheckBox("Use clipboard as context")
+        self._clip = QCheckBox("")
         row.addWidget(self._clip)
         row.addStretch(1)
-        self._hint = QLabel("↩ ask   ·   Esc close")
+        self._hint = QLabel("")
         self._hint.setProperty("role", "readout")
         row.addWidget(self._hint)
         v.addLayout(row)
+        self.retranslate()
 
         self._answer = QTextEdit()
         self._answer.setObjectName("Mono")
@@ -74,8 +76,19 @@ class QuickAskPalette(QWidget):
         QShortcut(QKeySequence(Qt.Key_Escape), self, activated=self.hide)
 
     # -- behavior -----------------------------------------------------------
+    def retranslate(self) -> None:
+        """Re-read the palette's strings; called at build and on every summon
+        (the palette outlives a live language switch in Settings)."""
+        from ...core.i18n import t
+        self._title_lbl.setText(t("qa.title"))
+        self._pill.set_status(t("qa.pill"), "secure")
+        self._input.setPlaceholderText(t("qa.placeholder"))
+        self._clip.setText(t("qa.clipboard"))
+        self._hint.setText(t("qa.hint"))
+
     def summon(self) -> None:
         """Center on the active screen, clear, and focus the input."""
+        self.retranslate()
         self._input.clear()
         self._answer.clear()
         self._answer.hide()

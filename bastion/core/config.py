@@ -79,13 +79,18 @@ OLLAMA_HOST = os.environ.get("BASTION_OLLAMA_HOST", "http://127.0.0.1:11434")
 DEFAULT_TEMPERATURE = _env_float("BASTION_TEMPERATURE", 0.7)
 DEFAULT_TOP_P = _env_float("BASTION_TOP_P", 0.95)
 DEFAULT_MAX_TOKENS = _env_int("BASTION_MAX_TOKENS", 2048)
-DEFAULT_CONTEXT = _env_int("BASTION_CONTEXT", 8192)
-# Context window a loaded GGUF is opened with. Bigger than DEFAULT_CONTEXT so a
-# whole business document can be read and summarized without overflowing (an 8k
-# window is destroyed by nearly any real .docx). Modern local models (Qwen3,
-# Llama-3.1) support this comfortably; grouped-query attention keeps the KV
-# cache small. Lower it with BASTION_MODEL_CTX on a RAM-constrained machine.
+# Context window a loaded GGUF is opened with, and the pre-load budget the meter
+# and agent loop are sized against until a real model reports its own window.
+# Big enough that a whole business document can be read and summarized without
+# overflowing (an 8k window is destroyed by nearly any real .docx). Modern local
+# models (Qwen3, Llama-3.1) support this comfortably; grouped-query attention
+# keeps the KV cache small. Lower it with BASTION_MODEL_CTX on a small machine.
 MODEL_CONTEXT = _env_int("BASTION_MODEL_CTX", 16384)
+# One source of truth for the context budget: the pre-load default tracks the
+# size a loaded GGUF will actually be opened with, so the meter and the agent's
+# trimming budget don't jump the moment a model loads. Override with
+# BASTION_CONTEXT; a loaded model's real context_length always wins at runtime.
+DEFAULT_CONTEXT = _env_int("BASTION_CONTEXT", MODEL_CONTEXT)
 
 # The inference process is isolated from the UI so a bad GGUF can't crash the app.
 INFERENCE_ISOLATED_PROCESS = _env_bool("BASTION_ISOLATED_INFERENCE", True)
@@ -94,11 +99,19 @@ INFERENCE_ISOLATED_PROCESS = _env_bool("BASTION_ISOLATED_INFERENCE", True)
 # ---------------------------------------------------------------------------
 # Agent loop
 # ---------------------------------------------------------------------------
-AGENT_MAX_ITERATIONS = _env_int("BASTION_AGENT_MAX_ITERS", 12)
-# Commands that may run without a per-call approval prompt (exact-match allowlist).
+# How many tool-use steps one agent turn may take. This is the single source of
+# truth: the UI passes it into AgentLoop so the running agent honours it (the
+# loop's own default is a fallback for direct/library use). Sized for the
+# multi-step office workflows — read a document, compute, write a report — which
+# need room to breathe; lower it with BASTION_AGENT_MAX_ITERS on a slow machine.
+AGENT_MAX_ITERATIONS = _env_int("BASTION_AGENT_MAX_ITERS", 24)
+# Commands that may run WITHOUT a per-call approval prompt (exact-match allowlist).
+# Empty by default — every command then surfaces the approval dialog first. This
+# is deliberate and matches the project's own hardening guidance: an allowlisted
+# 'pytest -q' would silently execute a conftest.py from an untrusted workspace.
+# An operator can opt specific commands in via BASTION_CMD_ALLOWLIST.
 COMMAND_ALLOWLIST = tuple(
-    c.strip() for c in os.environ.get(
-        "BASTION_CMD_ALLOWLIST", "pytest -q,git status,git diff,ls,dir").split(",")
+    c.strip() for c in os.environ.get("BASTION_CMD_ALLOWLIST", "").split(",")
     if c.strip()
 )
 COMMAND_TIMEOUT_S = _env_float("BASTION_CMD_TIMEOUT", 60.0)

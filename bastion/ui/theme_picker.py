@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel,
 
 from .theme import THEMES, Palette
 from .widgets.tactical import StencilLabel
+from ..core.i18n import t
 
 
 def _swatch_row(pal: Palette) -> QWidget:
@@ -52,8 +53,8 @@ class _ThemeCard(QFrame):
         head.addWidget(self._check)
         v.addLayout(head)
         v.addWidget(_swatch_row(pal))
-        sub = QLabel("Deep forest + sage teal" if pal.name == "dark"
-                     else "Soft sage + floating white")
+        sub = QLabel(t("theme.dark_sub") if pal.name == "dark"
+                     else t("theme.light_sub"))
         sub.setProperty("role", "readout")
         v.addWidget(sub)
 
@@ -70,7 +71,7 @@ class ThemePicker(QDialog):
     def __init__(self, apply_live: Callable[[str], None], current: str = "dark",
                  parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Choose your display")
+        self.setWindowTitle(t("theme.window"))
         self.setMinimumWidth(560)
         self._apply_live = apply_live
         self._chosen = current if current in THEMES else "dark"
@@ -79,11 +80,10 @@ class ThemePicker(QDialog):
         v = QVBoxLayout(self)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(16)
-        title = QLabel("DISPLAY THEME")
+        title = QLabel(t("theme.title"))
         title.setProperty("role", "h1")
         v.addWidget(title)
-        hint = QLabel("Pick a look — it applies instantly. You can change it any "
-                      "time in Settings.")
+        hint = QLabel(t("theme.hint"))
         hint.setProperty("role", "readout")
         hint.setWordWrap(True)
         v.addWidget(hint)
@@ -98,12 +98,12 @@ class ThemePicker(QDialog):
         cards.addWidget(self._cards["light"])
         v.addLayout(cards)
 
-        self._remember = QCheckBox("Use this and don't ask at launch again")
+        self._remember = QCheckBox(t("theme.remember"))
         v.addWidget(self._remember)
 
         row = QHBoxLayout()
         row.addStretch(1)
-        confirm = QPushButton("CONFIRM")
+        confirm = QPushButton(t("common.confirm").upper())
         confirm.setProperty("variant", "primary")
         confirm.clicked.connect(self._confirm)
         row.addWidget(confirm)

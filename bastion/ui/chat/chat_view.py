@@ -120,12 +120,34 @@ class MessageBubble(QFrame):
         return html.replace("\n", "<br>")
 
 
+class ChatInput(QTextEdit):
+    """The message box, accepting dropped files as attachments.
+
+    QTextEdit would otherwise paste a file drop as a ``file:///`` URL string;
+    here a drop with local files is routed to the chat's attachment flow and
+    everything else (text, rich snippets) pastes as normal.
+    """
+
+    files_dropped = Signal(list)
+
+    def canInsertFromMimeData(self, source) -> bool:  # noqa: N802 (Qt override)
+        return source.hasUrls() or super().canInsertFromMimeData(source)
+
+    def insertFromMimeData(self, source) -> None:  # noqa: N802 (Qt override)
+        paths = [u.toLocalFile() for u in source.urls() if u.isLocalFile()] \
+            if source.hasUrls() else []
+        if paths:
+            self.files_dropped.emit(paths)
+            return
+        super().insertFromMimeData(source)
+
+
 class ChatView(QWidget):
     def __init__(self, engine: Engine, palette: Palette, context_window: int = 8192,
                  system_prompt: str = "", agent_engine: Engine | None = None,
                  index=None, embed_engine=None, store=None,
                  command_allowlist=(), command_timeout_s=60.0,
-                 command_output_cap=100_000, parent=None):
+                 command_output_cap=100_000, agent_max_iterations=24, parent=None):
         super().__init__(parent)
         self._engine = engine
         self._context_window = int(context_window)   # grows when a model loads
@@ -135,6 +157,7 @@ class ChatView(QWidget):
         self._command_allowlist = tuple(command_allowlist)
         self._command_timeout_s = command_timeout_s
         self._command_output_cap = command_output_cap
+        self._agent_max_iterations = int(agent_max_iterations)
         self._store = store                 # encrypted conversation persistence
         self._scope = "__global__"          # workspace key the chat is saved under
         self._conversation_id = None
@@ -158,6 +181,9 @@ class ChatView(QWidget):
         from ...core.tools.base import NoteStore
         self._notes = NoteStore()
         self._ask_user = None   # bridge callable set via enable_agent()
+        # Files dropped onto the chat, riding along with the next message.
+        self._attachments = []
+        self.setAcceptDrops(True)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -207,11 +233,32 @@ class ChatView(QWidget):
 
         self._greeting()
 
+        # Attachment strip: hidden until a file is dropped onto the chat.
+        attach_row = QHBoxLayout()
+        attach_row.setContentsMargins(28, 0, 28, 0)
+        attach_row.setSpacing(8)
+        self._attach_bar = QWidget()
+        ab = QHBoxLayout(self._attach_bar)
+        ab.setContentsMargins(0, 0, 0, 4)
+        ab.setSpacing(8)
+        self._attach_label = QLabel("")
+        self._attach_label.setProperty("role", "readout")
+        self._attach_label.setWordWrap(True)
+        ab.addWidget(self._attach_label, 1)
+        self._attach_clear = QPushButton("")
+        self._attach_clear.setFixedHeight(28)
+        self._attach_clear.clicked.connect(self._clear_attachments)
+        ab.addWidget(self._attach_clear)
+        self._attach_bar.hide()
+        attach_row.addWidget(self._attach_bar)
+        root.addLayout(attach_row)
+
         bar = QHBoxLayout()
         bar.setContentsMargins(28, 8, 28, 20)
         bar.setSpacing(8)
-        self._input = QTextEdit()
+        self._input = ChatInput()
         self._input.setFixedHeight(74)
+        self._input.files_dropped.connect(self._add_attachments)
         bar.addWidget(self._input, 1)
         col = QVBoxLayout()
         col.setSpacing(6)
@@ -257,6 +304,68 @@ class ChatView(QWidget):
         self._input.setPlaceholderText(t("chat.placeholder"))
         self._send.setText(t("chat.send").upper())
         self._stop.setText(t("chat.stop").upper())
+        self._attach_clear.setText(t("chat.attach_clear").upper())
+        self._attach_bar.setToolTip(t("chat.attach_bar_tooltip"))
+        self._meter.retranslate()
+
+    # -- attachments (drag & drop) ------------------------------------------
+    def dragEnterEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        paths = [u.toLocalFile() for u in event.mimeData().urls()
+                 if u.isLocalFile()]
+        if paths:
+            self._add_attachments(paths)
+            event.acceptProposedAction()
+
+    def _add_attachments(self, paths: list) -> None:
+        """Extract each dropped file locally and queue it for the next send."""
+        from pathlib import Path
+        from ...core.docs import attach as _attach
+        for raw in paths[:8]:
+            p = Path(raw)
+            note = MessageBubble("trace", self._palette,
+                                 t("chat.chip_attachment"))
+            if p.is_dir():
+                note.set_text(t("chat.attach_dir", name=p.name))
+                self._insert(note)
+                continue
+            try:
+                att = _attach.load_attachment(p)
+            except _attach.TooLarge as exc:
+                note.set_text(t("chat.attach_too_big", name=p.name,
+                                mb=exc.size_mb))
+            except _attach.Unsupported:
+                note.set_text(t("chat.attach_unsupported", name=p.name))
+            except Exception as exc:  # noqa: BLE001 - surfaced, never crashes
+                note.set_text(t("chat.attach_failed", name=p.name, error=exc))
+            else:
+                self._attachments.append(att)
+                note.set_text(t("chat.attach_added", name=att.name,
+                                kind=att.kind, chars=f"{att.chars:,}"))
+                # Outside-the-jail content entering a conversation is exactly
+                # what an auditor wants to see: name, size, and fingerprint.
+                if self._audit is not None:
+                    self._audit.record("attachment", name=att.name,
+                                       path=att.path, chars=att.chars,
+                                       sha256=att.sha256)
+            self._insert(note)
+        self._sync_attach_bar()
+
+    def _sync_attach_bar(self) -> None:
+        if not self._attachments:
+            self._attach_bar.hide()
+            return
+        self._attach_label.setText("   ".join(
+            t("chat.attach_line", name=a.name, chars=f"{a.chars:,}")
+            for a in self._attachments))
+        self._attach_bar.show()
+
+    def _clear_attachments(self) -> None:
+        self._attachments = []
+        self._sync_attach_bar()
 
     def refresh_theme(self) -> None:
         """Repaint every existing bubble with the newly applied palette."""
@@ -285,11 +394,8 @@ class ChatView(QWidget):
         """Attach (or clear) the read-only reference library for agent runs."""
         self._library = library
         if library is not None:
-            note = MessageBubble("trace", self._palette, "LIBRARY")
-            note.set_text(
-                f"Reference library attached (read-only): {library.display_name}. "
-                f"I can search it with keywords and read documents from it; I "
-                f"can never write there.")
+            note = MessageBubble("trace", self._palette, t("chat.chip_library"))
+            note.set_text(t("chat.library_note", name=library.display_name))
             self._insert(note)
 
     def _greeting(self) -> None:
@@ -339,14 +445,16 @@ class ChatView(QWidget):
         self._scope = workspace.key if workspace is not None else "__global__"
         self._conversation_id = None
         self._reset_notes()
-        mode = MessageBubble("trace", self._palette, "MODE")
+        self._clear_attachments()
+        mode = MessageBubble("trace", self._palette, t("chat.chip_mode"))
         if workspace is not None:
-            mode.set_text(
-                f"Agent armed on workspace “{workspace.display_name}” "
-                f"({workspace.permission.value}). I can read and edit files here — "
-                f"every write is shown to you as a diff to approve.")
+            perm_key = {"read_only": "perm.read_only", "ask": "perm.ask",
+                        "auto_write": "perm.auto"}.get(
+                            workspace.permission.value, "perm.ask")
+            mode.set_text(t("chat.agent_armed", name=workspace.display_name,
+                            perm=t(perm_key)))
         else:
-            mode.set_text("Returned to chat mode. No workspace is mounted.")
+            mode.set_text(t("chat.agent_disarmed"))
         self._insert(mode)
 
     def set_engine(self, engine: Engine, model_label: str = "") -> bool:
@@ -371,7 +479,7 @@ class ChatView(QWidget):
         if n_ctx:
             self._context_window = int(n_ctx)
             self._meter.set_window(self._context_window)
-        note = MessageBubble("trace", self._palette, "MODEL")
+        note = MessageBubble("trace", self._palette, t("chat.chip_model"))
         label = model_label or getattr(getattr(engine, "info", None), "name", "")
         base = (t("chat.model_loaded", name=label) if label
                 else t("chat.model_loaded_generic"))
@@ -386,8 +494,19 @@ class ChatView(QWidget):
         if not text or self._worker is not None or self._agent_worker is not None:
             return
         self._input.clear()
-        user_bubble = MessageBubble("user", self._palette, "YOU")
-        user_bubble.set_text(text)
+        shown = text
+        if self._attachments:
+            # The model gets the extracted text, fitted to a slice of the
+            # context window; the transcript shows a short 📎 line per file.
+            from ...core.docs.attach import render_attachments
+            budget = max(8_000, int(self._context_window * 4 * 0.35))
+            text = text + "\n\n" + render_attachments(self._attachments, budget)
+            shown += "\n" + "\n".join(
+                t("chat.attach_line", name=a.name, chars=f"{a.chars:,}")
+                for a in self._attachments)
+            self._clear_attachments()
+        user_bubble = MessageBubble("user", self._palette, t("chat.you"))
+        user_bubble.set_text(shown)
         self._insert(user_bubble)
 
         self._persist("user", text)
@@ -401,10 +520,10 @@ class ChatView(QWidget):
         from ...core.agent import personas as _personas
         persona = _personas.get(name, self._store)
         self._system = persona.full_prompt
-        note = MessageBubble("trace", self._palette, "PERSONA")
-        kind = "custom persona" if persona.custom else "persona"
-        note.set_text(f"Switched to {kind} “{name}”. Tone and focus updated; the "
-                      f"security posture is unchanged.")
+        note = MessageBubble("trace", self._palette, t("chat.chip_persona"))
+        key = ("chat.persona_switched_custom" if persona.custom
+               else "chat.persona_switched")
+        note.set_text(t(key, name=name))
         self._insert(note)
 
     def _on_compact(self) -> None:
@@ -413,16 +532,15 @@ class ChatView(QWidget):
         from ...core.agent.compaction import compact
         summary, kept = compact(self._history, self._engine, keep_recent=4)
         if not summary.content:
-            note = MessageBubble("trace", self._palette, "COMPACT")
-            note.set_text("Not enough earlier context to compact yet.")
+            note = MessageBubble("trace", self._palette, t("chat.compact"))
+            note.set_text(t("chat.compact_nothing"))
             self._insert(note)
             return
         # Replace older turns with the marked summary; keep recent verbatim.
         self._history = [summary, *kept]
-        marker = MessageBubble("trace", self._palette, "CONTEXT COMPACTED")
-        marker.set_text("Earlier turns were summarized to free context (the model "
-                        "now sees this summary in their place, plus the most recent "
-                        "messages):\n\n" + summary.content)
+        marker = MessageBubble("trace", self._palette,
+                               t("chat.chip_compacted"))
+        marker.set_text(t("chat.compact_marker") + "\n\n" + summary.content)
         self._insert(marker)
         self._meter.set_usage(sum(len(m.content) for m in self._history) // 4)
 
@@ -431,7 +549,8 @@ class ChatView(QWidget):
         if self._store is None or not content.strip():
             return
         if self._conversation_id is None:
-            title = content.strip().splitlines()[0][:48] or "Conversation"
+            title = (content.strip().splitlines()[0][:48]
+                     or t("chat.default_title"))
             self._conversation_id = self._store.create_conversation(self._scope, title)
         self._store.add_message(self._conversation_id, role, content)
 
@@ -445,6 +564,7 @@ class ChatView(QWidget):
         self._history.clear()
         self._clear_messages()
         self._reset_notes()
+        self._clear_attachments()
         self._greeting()
 
     def _clear_messages(self) -> None:
@@ -460,11 +580,11 @@ class ChatView(QWidget):
         import time as _t
         menu = QMenu(self)
         if self._store is None:
-            menu.addAction("(persistence disabled)").setEnabled(False)
+            menu.addAction(t("chat.history_disabled")).setEnabled(False)
         else:
             convs = self._store.list_conversations(self._scope)
             if not convs:
-                menu.addAction("(no saved conversations in this scope)").setEnabled(False)
+                menu.addAction(t("chat.history_empty")).setEnabled(False)
             for c in convs[:20]:
                 when = _t.strftime("%m-%d %H:%M", _t.localtime(c.updated))
                 act = menu.addAction(f"{when}  ·  {c.title}")
@@ -477,10 +597,11 @@ class ChatView(QWidget):
         self._clear_messages()
         self._history.clear()
         self._reset_notes()   # notes are in-memory only; a loaded chat starts clean
+        self._clear_attachments()
         self._conversation_id = conversation_id
         for m in self._store.get_messages(conversation_id):
             role = m["role"]
-            author = "YOU" if role == "user" else "BASTIONBOX"
+            author = t("chat.you") if role == "user" else "BASTIONBOX"
             bubble = MessageBubble("user" if role == "user" else "assistant",
                                    self._palette, author)
             bubble.set_text(m["content"])
@@ -535,8 +656,10 @@ class ChatView(QWidget):
         persona = _personas.get(self._persona_box.currentText(), self._store)
         loop = AgentLoop(engine, ctx, toolbox=default_toolbox(),
                          context_tokens=int(n_ctx),
+                         max_iterations=self._agent_max_iterations,
                          role_prompt=persona.full_prompt)
-        self._trace = MessageBubble("trace", self._palette, "AGENT TRACE")
+        self._trace = MessageBubble("trace", self._palette,
+                                    t("chat.chip_trace"))
         self._insert(self._trace)
         self._trace_text = ""
 

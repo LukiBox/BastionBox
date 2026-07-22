@@ -195,7 +195,9 @@ def main() -> int:
         app.setQuitOnLastWindowClosed(False)
         tray = Tray(palette, on_show=_show_window,
                     on_quick_ask=quick.summon, on_quit=app.quit)
-        tray.set_status(f"{engine.info.name if engine.info else 'no model'} · sealed")
+        tray.set_status(i18n.t(
+            "tray.sealed",
+            name=engine.info.name if engine.info else i18n.t("status.no_model")))
         tray.show()
         # Let the window update the tray label when a real model is loaded.
         window._tray = tray

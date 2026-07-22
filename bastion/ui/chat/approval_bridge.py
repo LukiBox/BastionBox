@@ -98,11 +98,11 @@ class ApprovalBridge(QObject):
 
     def _show_command(self, req: _CommandRequest) -> None:
         from PySide6.QtWidgets import QMessageBox
+        from ...core.i18n import t
         try:
             box = QMessageBox()
-            box.setWindowTitle("RUN COMMAND — approval required")
-            box.setText(f"The agent wants to run, jailed to the workspace:\n\n"
-                        f"    {req.command}\n\nOutput is captured and logged.")
+            box.setWindowTitle(t("cmd.title").upper())
+            box.setText(t("cmd.body", command=req.command))
             box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
             box.setDefaultButton(QMessageBox.Cancel)
             approved = box.exec() == QMessageBox.Ok

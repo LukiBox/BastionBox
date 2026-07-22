@@ -11,13 +11,22 @@ Design
   ``fsync``-ed, so a crash can lose at most the last unfinished line.
 * **Hash-chained.** Every entry carries ``prev`` — the hash of the entry before
   it — and its own ``hash`` covers ``prev`` plus the canonical serialization of
-  the entry's content. Changing, reordering, or deleting any entry breaks the
-  chain from that point on, and truncation is caught because the sequence numbers
-  must be contiguous and the final hash is known.
-* **Optional keyed integrity.** With a secret key the chain uses HMAC-SHA256, so
-  an attacker who can rewrite the file *and* recompute plain SHA-256 hashes still
-  cannot forge a valid chain without the key. Without a key it falls back to a
-  plain SHA-256 chain (still detects accidental corruption and naive edits).
+  the entry's content. Changing, reordering, or deleting any entry in the middle
+  of the file breaks the chain from that point on.
+* **Anchored against tail truncation.** A hash chain alone cannot notice that the
+  *newest* entries were lopped off: entries 1..k stay internally consistent. So a
+  small side ``.checkpoint`` file records the last ``(seq, hash, count)`` after
+  every append; :meth:`verify` compares the walked chain against it and flags a
+  log that is shorter than, or ends on a different hash than, the checkpoint. This
+  is what makes "someone rolled back the record to hide their last action"
+  detectable rather than a silent green light.
+* **Optional keyed integrity.** With a secret key both the chain and the
+  checkpoint use HMAC-SHA256, so an attacker who can rewrite the file *and*
+  recompute plain SHA-256 hashes still cannot forge either without the key.
+  Without a key it falls back to plain SHA-256 (still detects accidental
+  corruption and naive edits, but a determined attacker with file access can
+  recompute it — for high-assurance sites supply a secret and also export the
+  chain off-box periodically, as the checklist recommends).
 
 What we log — and what we deliberately do not
 ---------------------------------------------
@@ -76,6 +85,9 @@ class AuditLog:
     def __init__(self, path: str | os.PathLike[str], secret: bytes | None = None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        #: Side anchor holding the last (seq, hash, count) so verify() can catch
+        #: truncation of the newest entries — see the module docstring.
+        self.checkpoint_path = self.path.with_name(self.path.name + ".checkpoint")
         self._secret = secret
         self._lock = threading.Lock()
         # Recover chain state ONCE at open; record() then appends in O(1) rather
@@ -134,7 +146,48 @@ class AuditLog:
                 os.fsync(fh.fileno())
             self._last_hash = entry["hash"]
             self._seq = seq
+            self._write_checkpoint(seq, entry["hash"])
             return entry
+
+    # -- tail-truncation anchor ---------------------------------------------
+    def _checkpoint_mac(self, body: bytes) -> str:
+        """Authenticate the checkpoint the same way the chain is keyed."""
+        if self._secret is not None:
+            return hmac.new(self._secret, body, hashlib.sha256).hexdigest()
+        return hashlib.sha256(body).hexdigest()
+
+    def _write_checkpoint(self, seq: int, last_hash: str) -> None:
+        """Persist ``(seq, hash, count)`` atomically after an append.
+
+        Best-effort and never fatal: if the anchor can't be written the log is
+        still valid, verify() simply falls back to chain-only checking.
+        """
+        core = {"seq": seq, "hash": last_hash, "count": seq}
+        core["mac"] = self._checkpoint_mac(_canonical(core))
+        tmp = self.checkpoint_path.parent / (self.checkpoint_path.name + ".tmp")
+        try:
+            with tmp.open("w", encoding="utf-8") as fh:
+                fh.write(json.dumps(core, ensure_ascii=False))
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, self.checkpoint_path)
+        except OSError:
+            pass
+
+    def _read_checkpoint(self) -> dict[str, Any] | None:
+        """Load and authenticate the checkpoint, or None if absent/forged."""
+        if not self.checkpoint_path.exists():
+            return None
+        try:
+            cp = json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        mac = cp.get("mac")
+        core = {k: cp.get(k) for k in ("seq", "hash", "count")}
+        if not isinstance(mac, str) or not hmac.compare_digest(
+                mac, self._checkpoint_mac(_canonical(core))):
+            return {"_forged": True}
+        return core
 
     # -- convenience recorders (what the agent actually logs) ---------------
     def log_prompt(self, conversation_id: str, prompt: str) -> None:
@@ -171,12 +224,22 @@ class AuditLog:
         """Recompute the whole chain and report the first tampered entry, if any.
 
         Detects content mutation, hash forgery (without the key), reordering,
-        insertion, and truncation (via contiguous sequence numbers).
+        insertion, mid-file deletion (via contiguous sequence numbers), and —
+        against the persisted checkpoint — truncation of the newest entries.
         """
         prev = _GENESIS
         count = 0
         expected_seq = 1
+        checkpoint = self._read_checkpoint()
+        hash_at_checkpoint: str | None = None
+        cp_count = (checkpoint or {}).get("count") if checkpoint and \
+            not checkpoint.get("_forged") else None
         if not self.path.exists():
+            # A checkpoint claiming entries but no log file at all is a wipe.
+            if cp_count:
+                return AuditResult(False, 0, 1,
+                                   f"log file missing but checkpoint expects "
+                                   f"{cp_count} entries (truncated/deleted)")
             return AuditResult(ok=True, entries=0, detail="no log yet")
         with self.path.open("r", encoding="utf-8") as fh:
             for lineno, line in enumerate(fh, start=1):
@@ -205,6 +268,25 @@ class AuditLog:
                                        f"entry {expected_seq}: content does not "
                                        f"match its hash (tampered)")
                 prev = entry["hash"]
+                if count == cp_count:
+                    hash_at_checkpoint = entry["hash"]
                 expected_seq += 1
+
+        # The chain is internally consistent; now check it against the anchor so
+        # a lopped-off tail (a valid but shorter chain) cannot pass silently.
+        if checkpoint is not None:
+            if checkpoint.get("_forged"):
+                return AuditResult(False, count, count,
+                                   "audit checkpoint signature invalid (tampered)")
+            if cp_count and count < cp_count:
+                return AuditResult(False, count, count + 1,
+                                   f"log truncated: {count} entries present but "
+                                   f"checkpoint expects {cp_count} "
+                                   f"(newest {cp_count - count} removed)")
+            if cp_count and hash_at_checkpoint is not None \
+                    and hash_at_checkpoint != checkpoint.get("hash"):
+                return AuditResult(False, count, cp_count,
+                                   f"entry {cp_count}: hash does not match the "
+                                   f"signed checkpoint (history rewritten)")
         return AuditResult(ok=True, entries=count,
                            detail=f"chain valid, {count} entries")

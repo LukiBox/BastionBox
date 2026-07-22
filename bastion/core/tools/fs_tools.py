@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -207,6 +208,9 @@ class Grep(Tool):
         rg = shutil.which("rg")
         root = str(ctx.workspace.root)
         if rg:
+            # Do NOT pass -L/--follow: ripgrep must never descend a symlink or
+            # junction out of the workspace. Even so, every hit is re-validated
+            # through the jail below, so a reparse point can't leak a path.
             cmd = [rg, "--line-number", "--no-heading", "--color", "never",
                    "--max-count", "50"]
             if args.get("glob"):
@@ -215,17 +219,37 @@ class Grep(Tool):
             try:
                 out = subprocess.run(cmd, capture_output=True, text=True,
                                      timeout=20, cwd=root)
-                lines = out.stdout.splitlines()[:200]
-                # Make paths workspace-relative for clean citations.
-                rel = [ln.replace(root + os.sep, "").replace(root + "/", "")
-                       for ln in lines]
-                return ToolResult(True, "\n".join(rel) or "(no matches)")
+                kept: list[str] = []
+                for ln in out.stdout.splitlines()[:200]:
+                    # Make paths workspace-relative for clean citations.
+                    rel_ln = ln.replace(root + os.sep, "").replace(root + "/", "")
+                    if self._hit_escapes_jail(ctx, rel_ln):
+                        continue
+                    kept.append(rel_ln)
+                return ToolResult(True, "\n".join(kept) or "(no matches)")
             except Exception:  # noqa: BLE001 - fall through to python scan
                 pass
         return self._python_grep(ctx, query, args.get("glob"))
 
+    @staticmethod
+    def _hit_escapes_jail(ctx: ToolContext, line: str) -> bool:
+        """True if a ``path:line:content`` hit resolves outside the workspace.
+
+        A junction/symlink inside the workspace can point out of it; the path
+        must be re-canonicalized through the jail before its content is shown,
+        exactly as read_file and glob already do.
+        """
+        m = re.match(r"^(.*?):\d+:", line)
+        rel = (m.group(1) if m else line).replace(os.sep, "/")
+        if not rel:
+            return False
+        try:
+            ctx.jail.resolve(rel, ctx.workspace)
+            return False
+        except JailViolation:
+            return True
+
     def _python_grep(self, ctx: ToolContext, query: str, glob: str | None) -> ToolResult:
-        import re
         try:
             rx = re.compile(query)
         except re.error:
@@ -237,6 +261,12 @@ class Grep(Tool):
                 continue
             rel = path.relative_to(root).as_posix()
             if glob and not fnmatch.fnmatch(rel, glob):
+                continue
+            try:  # re-canonicalize through the jail before reading — a junction
+                # inside the workspace pointing outside must never be read here
+                # (glob and read_file already do this; the old fallback did not).
+                ctx.jail.resolve(rel, ctx.workspace)
+            except JailViolation:
                 continue
             try:
                 text = path.read_text("utf-8", errors="ignore")

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QLineEdit,
 
 from ...core.agent.diffing import Diff
 from ...core.agent.permissions import Decision
+from ...core.i18n import t
 from ..theme import Palette
 
 
@@ -38,7 +39,7 @@ class DiffDialog(QDialog):
     def __init__(self, diff: Diff, palette: Palette, workspace_name: str = "",
                  parent=None):
         super().__init__(parent)
-        self.setWindowTitle("REVIEW CHANGE — approval required")
+        self.setWindowTitle(t("diff.title").upper())
         self.setMinimumSize(720, 520)
         self._decision = Decision(False, "dialog closed")
 
@@ -47,11 +48,11 @@ class DiffDialog(QDialog):
         v.setSpacing(12)
 
         added, removed = diff.stats
-        head = QLabel(f"{'NEW FILE' if diff.is_new_file else 'EDIT'}  ·  "
-                      f"{diff.path}   (+{added} −{removed})")
+        kind = t("diff.new_file") if diff.is_new_file else t("diff.edit")
+        head = QLabel(f"{kind.upper()}  ·  {diff.path}   (+{added} −{removed})")
         head.setProperty("role", "h1")
         v.addWidget(head)
-        sub = QLabel(f"Workspace: {workspace_name}  ·  review before it is written")
+        sub = QLabel(t("diff.workspace_line", name=workspace_name))
         sub.setProperty("role", "readout")
         v.addWidget(sub)
 
@@ -62,16 +63,16 @@ class DiffDialog(QDialog):
         v.addWidget(view, 1)
 
         self._note = QLineEdit()
-        self._note.setPlaceholderText("Optional note on rejection (fed back to the agent)…")
+        self._note.setPlaceholderText(t("diff.note_placeholder"))
         v.addWidget(self._note)
 
         row = QHBoxLayout()
-        reject = QPushButton("REJECT")
+        reject = QPushButton(t("agent.reject").upper())
         reject.setProperty("variant", "danger")
         reject.clicked.connect(self._reject)
-        approve_all = QPushButton("AUTO-APPROVE (SESSION)")
+        approve_all = QPushButton(t("agent.approve_all").upper())
         approve_all.clicked.connect(self._approve_all)
-        approve = QPushButton("APPROVE")
+        approve = QPushButton(t("agent.approve").upper())
         approve.setProperty("variant", "primary")
         approve.clicked.connect(self._approve)
         row.addWidget(reject)

@@ -106,7 +106,8 @@ class MainWindow(QWidget):
                               agent_engine=self._agent_engine,
                               index=self._index, embed_engine=self._embed_engine,
                               store=store,
-                              command_allowlist=cfg.command_allowlist)
+                              command_allowlist=cfg.command_allowlist,
+                              agent_max_iterations=cfg.agent_max_iterations)
         self._pages = {
             "chat": self._chat,
             "workspaces": self._workspaces_page(),
@@ -205,7 +206,8 @@ class MainWindow(QWidget):
                        '<span style="font-weight:300;"> BOX</span>')
         brand.setObjectName("Wordmark")
         brand.setTextFormat(Qt.RichText)
-        credit = QLabel("Made by LukiBox")
+        credit = QLabel()
+        self._bind(lambda l=credit: l.setText(t("app.credit")))
         credit.setObjectName("WordmarkTag")
         v.addWidget(brand)
         v.addWidget(credit)
@@ -457,7 +459,7 @@ class MainWindow(QWidget):
         # Reflect the live model in the tray, if the app wired one in.
         tray = getattr(self, "_tray", None)
         if tray is not None:
-            tray.set_status(f"{label} · sealed")
+            tray.set_status(t("tray.sealed", name=label))
         QMessageBox.information(self, t("card.registry"),
                                 t("models.loaded_ok", name=label))
 

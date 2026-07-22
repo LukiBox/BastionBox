@@ -139,7 +139,8 @@ class ContextMeter(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(4)
         row = QHBoxLayout()
-        self._label = QLabel("CONTEXT")
+        from ...core.i18n import t
+        self._label = QLabel(t("meter.context").upper())
         self._label.setProperty("role", "readout")
         self._value = QLabel(f"0 / {window:,}")
         self._value.setProperty("role", "readout")
@@ -152,6 +153,10 @@ class ContextMeter(QWidget):
         self._bar.setValue(0)
         self._bar.setTextVisible(False)
         v.addWidget(self._bar)
+
+    def retranslate(self) -> None:
+        from ...core.i18n import t
+        self._label.setText(t("meter.context").upper())
 
     def set_usage(self, used: int) -> None:
         used = max(0, min(used, self._window))
